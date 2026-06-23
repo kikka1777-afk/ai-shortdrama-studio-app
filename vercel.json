@@ -1,7 +1,8 @@
 {
   "functions": {
     "api/generate.js": {
-      "regions": ["hkg1"]
+      "regions": ["hkg1"],
+      "maxDuration": 60
     }
   }
 }
