@@ -119,7 +119,7 @@
   <span class="pill">Writer → Director → Stylist</span>
   <span id="modeBadge" class="badge demo">演示模式（内置示例）</span>
   <div class="sp"></div>
-  <button class="btn" onclick="openSettings()">⚙ 设置接口</button>
+  <button class="btn" id="settingsBtn" onclick="openSettings()" style="display:none">⚙ 设置接口</button>
 </header>
 
 <div class="wrap">
@@ -180,7 +180,7 @@
 
 <footer>
   Writer→Director→Stylist 串联工作流。在线生成经同源 /api/generate 代理调用 OpenAI 兼容接口或 Azure；
-  API Key 可在右上「设置接口」填入，或在 Vercel 项目环境变量里设 OPENAI_API_KEY（无需改代码）。
+  API Key 由管理员在 Vercel 环境变量里统一配置。
 </footer>
 
 <!-- 设置弹窗 -->
@@ -504,7 +504,16 @@ function refreshMode(){
   if(has){b.textContent='在线模式（'+prov+'）';b.className='badge';
     document.getElementById('hint').textContent='已配置接口：「运行工作流」将对当前素材、标签、画风实时生成；「跑内置样例」随时可看演示。';}
   else{b.textContent='演示模式（内置示例）';b.className='badge demo';
-    document.getElementById('hint').textContent='直接点「运行工作流」即看内置「都市逆袭」样例的真实产出；切换画风会实时改写 image_prompt。配置接口（或在 Vercel 设环境变量）后即可跑你们自己的素材。';}
+    document.getElementById('hint').textContent='直接点「运行工作流」即可使用已部署的在线工作流；「跑内置样例」可查看演示产出。';}
+}
+
+function initAdminMode(){
+  const params=new URLSearchParams(location.search);
+  if(params.get('admin')==='1') localStorage.setItem('admin_settings','1');
+  if(params.get('admin')==='0') localStorage.removeItem('admin_settings');
+  const admin=localStorage.getItem('admin_settings')==='1';
+  const btn=document.getElementById('settingsBtn');
+  if(btn) btn.style.display=admin?'inline-flex':'none';
 }
 
 /* ===================== 渲染 ===================== */
@@ -602,7 +611,7 @@ async function run(){
   try{
     await runLive(p);
   }catch(err){
-    alert('在线生成失败：'+err.message+'\n\n已自动回退为内置示例。\n请到「设置接口」检查 Key/地址/部署名，或在 Vercel 项目里设置 OPENAI_API_KEY 环境变量。');
+    alert('在线生成失败：'+err.message+'\n\n已自动回退为内置示例。\n请联系管理员检查 Vercel 环境变量 OPENAI_API_KEY / OPENAI_BASE_URL。');
     await runDemo();
   }
   btn.disabled=false; if(btn2)btn2.disabled=false;
@@ -682,7 +691,7 @@ function makeFallbackAssets(p,dir,writerOut){
 }
 
 /* init */
-resetDemo(); initChips(); refreshMode();
+resetDemo(); initChips(); initAdminMode(); refreshMode();
 </script>
 </body>
 </html>
