@@ -2,6 +2,30 @@
 // 好处：① 避开浏览器跨域(CORS)；② API Key 可放在 Vercel 环境变量，前端不暴露、同事免配置。
 // 运行环境：Vercel Node.js（已内置全局 fetch）。
 
+function normalizeOpenAIBase(raw) {
+  let b = (raw || 'https://api.openai.com/v1').trim().replace(/\/+$/, '');
+  if (/\/chat\/completions$/i.test(b)) return b;
+
+  try {
+    const u = new URL(b);
+    u.hash = '';
+    u.search = '';
+
+    const versionPath = u.pathname.match(/^(.*?\/v\d+)(?:\/.*)?$/i);
+    if (versionPath) {
+      u.pathname = versionPath[1];
+      return u.toString().replace(/\/+$/, '');
+    }
+
+    const cleanPath = u.pathname.replace(/\/+$/, '');
+    const isLikelyDashboardPath = !cleanPath || cleanPath === '/' || /\/(?:login|dashboard|console|admin|app|home)$/i.test(cleanPath);
+    u.pathname = (isLikelyDashboardPath ? '' : cleanPath) + '/v1';
+    return u.toString().replace(/\/+$/, '');
+  } catch (e) {
+    return b;
+  }
+}
+
 module.exports = async (req, res) => {
   // 只接受 POST
   if (req.method !== 'POST') {
@@ -56,8 +80,7 @@ module.exports = async (req, res) => {
       headers['api-key'] = apiKey;
     } else {
       // OpenAI 兼容：base 默认 OpenAI 官方；key 用 Bearer
-      let b = ((base && base.trim()) || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
-      if (!/\/(?:v\d+|chat\/completions)$/.test(b)) b += '/v1';
+      let b = normalizeOpenAIBase((base && base.trim()) || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1');
       url = /\/chat\/completions$/.test(b) ? b : b + '/chat/completions';
       headers['Authorization'] = 'Bearer ' + apiKey;
       payload.model = model;
@@ -75,7 +98,7 @@ module.exports = async (req, res) => {
     if (!upstream.ok) {
       if (htmlHint) {
         res.status(upstream.status).json({
-          error: '上游返回了 HTML 页面而不是 JSON。请检查 API Base / OPENAI_BASE_URL：它应该是 OpenAI 兼容接口地址，例如 https://api.openai.com/v1，而不是网关首页或控制台页面。'
+          error: '上游返回了 HTML 页面而不是 JSON。请检查 API Base / OPENAI_BASE_URL：它应该是 OpenAI 兼容接口地址，例如 https://api.openai.com/v1，而不是网关首页或控制台页面。当前请求地址：' + url
         });
         return;
       }
@@ -88,7 +111,7 @@ module.exports = async (req, res) => {
     catch (e) {
       if (htmlHint) {
         res.status(502).json({
-          error: '上游返回了 HTML 页面而不是 JSON。请检查 API Base / OPENAI_BASE_URL：它应该是 OpenAI 兼容接口地址，例如 https://api.openai.com/v1，而不是网关首页或控制台页面。'
+          error: '上游返回了 HTML 页面而不是 JSON。请检查 API Base / OPENAI_BASE_URL：它应该是 OpenAI 兼容接口地址，例如 https://api.openai.com/v1，而不是网关首页或控制台页面。当前请求地址：' + url
         });
         return;
       }
