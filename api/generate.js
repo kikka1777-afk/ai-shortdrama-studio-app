@@ -57,6 +57,7 @@ module.exports = async (req, res) => {
     } else {
       // OpenAI 兼容：base 默认 OpenAI 官方；key 用 Bearer
       let b = ((base && base.trim()) || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/$/, '');
+      if (!/\/(?:v\d+|chat\/completions)$/.test(b)) b += '/v1';
       url = /\/chat\/completions$/.test(b) ? b : b + '/chat/completions';
       headers['Authorization'] = 'Bearer ' + apiKey;
       payload.model = model;
