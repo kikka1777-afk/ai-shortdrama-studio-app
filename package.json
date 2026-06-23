@@ -1,0 +1,6 @@
+{
+  "name": "ai-shortdrama-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI 短剧工作流 (Writer/Director/Stylist) - Vercel 一键部署版"
+}
