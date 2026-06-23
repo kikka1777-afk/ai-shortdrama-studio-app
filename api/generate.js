@@ -1,6 +1,6 @@
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_MODEL = 'gpt-4o-mini';
-const REQUEST_TIMEOUT_MS = 55000;
+const REQUEST_TIMEOUT_MS = 58000;
 
 function normalizeOpenAIBase(raw) {
   const fallback = DEFAULT_BASE_URL;
@@ -133,6 +133,12 @@ function shouldRetryWithoutJsonFormat(result) {
     message.includes('unsupported');
 }
 
+function shouldRetryWithoutStream(result) {
+  const message = String(result?.json?.error?.message || result?.text || '').toLowerCase();
+  return message.includes('stream') &&
+    (message.includes('not support') || message.includes('unsupported') || message.includes('invalid'));
+}
+
 function contentFromResult(result) {
   const data = result?.json;
   return data?.choices?.[0]?.message?.content ||
@@ -220,9 +226,16 @@ module.exports = async (req, res) => {
       const configuredBase = (base && base.trim()) || process.env.OPENAI_BASE_URL || DEFAULT_BASE_URL;
       url = chatUrlFromBase(configuredBase);
       headers.Authorization = 'Bearer ' + apiKey;
+      payload.stream = true;
     }
 
     let result = await postChat(url, headers, payload);
+
+    if (!result.ok && provider !== 'azure' && shouldRetryWithoutStream(result)) {
+      const retryPayload = { ...payload };
+      delete retryPayload.stream;
+      result = await postChat(url, headers, retryPayload);
+    }
 
     if (!result.ok && wantJSON && shouldRetryWithoutJsonFormat(result)) {
       const retryPayload = { ...payload };
