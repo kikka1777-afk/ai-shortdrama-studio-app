@@ -629,44 +629,12 @@ async function callLLM(sys,user,wantJSON){
   const base=normalizeBaseInput(localStorage.getItem('oa_base')||'');
   const model=localStorage.getItem('oa_model')||'gpt-4o-mini';
   const apiVersion=localStorage.getItem('oa_apiver')||'2024-08-01-preview';
-  try{
-    const r=await fetch('/api/generate',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({provider,key,base,model,apiVersion,system:sys,user,wantJSON})});
-    const j=await r.json().catch(()=>({error:'服务器返回非 JSON（可能未部署 /api/generate）'}));
-    if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
-    return j.content;
-  }catch(err){
-    if(provider==='openai'&&key&&(base||localStorage.getItem('oa_base'))&&/HTML|504|timeout|超时|Gateway/i.test(String(err.message||err))){
-      return await callLLMDirect(base||'https://sub2api.aisite.net/v1',key,model,sys,user,wantJSON);
-    }
-    throw err;
-  }
-}
-async function callLLMDirect(base,key,model,sys,user,wantJSON){
-  const apiBase=normalizeBaseInput(base||'https://sub2api.aisite.net/v1');
-  const url=/\/chat\/completions$/i.test(apiBase)?apiBase:apiBase+'/chat/completions';
-  const body={
-    model:model||'gpt-4o-mini',
-    messages:[{role:'system',content:sys||''},{role:'user',content:user||''}],
-    temperature:wantJSON?0.3:0.7,
-    max_tokens:wantJSON?2000:4000
-  };
-  if(wantJSON) body.response_format={type:'json_object'};
-  let r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+key},body:JSON.stringify(body)});
-  let j=await r.json().catch(()=>null);
-  if(!r.ok&&wantJSON&&j&&j.error&&/response_format|json_object|unsupported|not support/i.test(j.error.message||'')){
-    delete body.response_format;
-    r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+key},body:JSON.stringify(body)});
-    j=await r.json().catch(()=>null);
-  }
-  if(!r.ok||!j){
-    const msg=(j&&j.error&&(j.error.message||j.error))||('HTTP '+r.status);
-    throw new Error('直连 Sub2API 失败：'+msg);
-  }
-  const content=(j.choices&&j.choices[0]&&((j.choices[0].message&&j.choices[0].message.content)||j.choices[0].text))||j.output_text||j.text||j.content||'';
-  if(!content) throw new Error('直连 Sub2API 成功但没有返回文本');
-  return content;
+  const r=await fetch('/api/generate',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({provider,key,base,model,apiVersion,system:sys,user,wantJSON})});
+  const j=await r.json().catch(()=>({error:'服务器返回非 JSON（可能未部署 /api/generate）'}));
+  if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
+  return j.content;
 }
 function parseJSON(s){
   let t=s.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
