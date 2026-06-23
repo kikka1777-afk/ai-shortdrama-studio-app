@@ -227,7 +227,7 @@ function buildPrompts(p){
 - 若素材只是点子或片段：在忠于用户核心意图的前提下，合理补全人物、动机、冲突与结局，扩写成完整故事。
 风格、人设与爽点强度向题材标签 ${tags} 靠拢；把慢热铺垫改成开场即冲突。
 ## Rules
-1.严禁注水，只保留推动剧情的事件。2.尊重用户核心意图，不擅自引入与设定冲突的神怪/科幻/穿越等元素（除非素材或标签暗示）。3.不分集、不写镜头号。4.用中文输出。
+1.严禁注水，只保留推动剧情的事件。2.尊重用户核心意图，不擅自引入与设定冲突的神怪/科幻/穿越等元素（除非素材或标签暗示）。3.不分集、不写镜头号。4.用中文输出。5.控制在 600～900 字，优先跑通工作流。
 ## Response Format
 直接输出重构/扩写后的故事正文（纯文本，可分段），不要任何前导说明或标题。`,
     director:
@@ -235,7 +235,7 @@ function buildPrompts(p){
 ## Objective
 把重构故事拆解为结构化、强推背感的分集大纲。${totalLine}。
 ## Rules
-1.第1集时长=${p.ep1}秒；其余每集目标时长=${p.dur}秒（允许±15秒）。
+1.最多输出 4 集；第1集时长=${p.ep1}秒；其余每集目标时长=${p.dur}秒（允许±15秒）。
 2.每集最后${p.hook}秒必须制造反转/身份危机/情感悬念，强迫观众点开下一集。
 3.严禁编造，情节必须基于上游文本。4.每集给出出场角色列表。5.中文输出文本字段。
 ## Response Format
@@ -249,7 +249,7 @@ function buildPrompts(p){
 角色造型、关键道具、场景、服装/妆造、标志性镜头/视觉符号、特写、载具、动物、特效/超自然元素、片头与字幕风格、整体色调基调……
 但**不是每部剧都需要全部类别**：只为这部剧真正存在且重要的元素开类。
 ## Rules
-1.【智能聚焦·最重要】先判断本剧的视觉重心，只挑出真正影响成片、值得单独出图的关键资产。类别要克制——通常 3～6 类即可；某类只有一两个边角元素时，并入最相近的类别，不要为每个小物件单列、把类别撑爆而丧失焦点。
+1.【智能聚焦·最重要】先判断本剧的视觉重心，只挑出真正影响成片、值得单独出图的关键资产。类别要克制——最多 3 类、每类最多 3 项；某类只有一两个边角元素时，并入最相近的类别，不要为每个小物件单列。
 2.详略得当：核心元素(主角、贯穿全剧的信物、主场景、决定性名场面)写细；次要元素一笔带过或省略。宁缺毋滥，但绝不编造素材里不存在的东西。
 3.每项需可复用：同类元素(尤其角色)核心特征固定，便于多镜头一致。
 4.尽量标注 appears_in_episodes(出现集号)与一句话用途说明 note。
@@ -643,22 +643,42 @@ function parseJSON(s){
 async function runLive(p){
   if(!p.raw){throw new Error('请先在左侧填入原始素材/创意');}
   const P=buildPrompts(p);
+  const compact=s=>String(s||'').slice(0,3500);
   // Writer
   setStage(1,'run');
   const writerOut=await callLLM(P.writer,
-    `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定，自行判断）'}\n【原始素材/创意】\n${p.raw}`,false);
+    `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定，自行判断）'}\n【原始素材/创意】\n${compact(p.raw)}`,false);
   renderWriter(writerOut); setStage(1,'done');
   // Director (强制 JSON)
   setStage(2,'run');
   const dirRaw=await callLLM(P.director,
-    `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【重构故事】\n${writerOut}`,true);
+    `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【重构故事】\n${compact(writerOut)}`,true);
   const dir=parseJSON(dirRaw); renderDirector(dir); setStage(2,'done');
   // Stylist (输出开放分组资产)
   setStage(3,'run');
-  const styRaw=await callLLM(P.stylist,
-    `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【画风】${p.style}\n【原始素材】\n${p.raw}\n【分集大纲】\n${JSON.stringify(dir)}`,true);
-  const sty=parseJSON(styRaw);
-  renderStylist(sty,false); setStage(3,'done');  // 在线模式由模型已注入画风
+  try{
+    const styRaw=await callLLM(P.stylist,
+      `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【画风】${p.style}\n【故事摘要】\n${compact(writerOut)}\n【分集大纲】\n${compact(JSON.stringify(dir))}`,true);
+    const sty=parseJSON(styRaw);
+    renderStylist(sty,false); setStage(3,'done');  // 在线模式由模型已注入画风
+  }catch(err){
+    renderStylist(makeFallbackAssets(p,dir,writerOut),true);
+    setStage(3,'done');
+  }
+}
+
+function makeFallbackAssets(p,dir,writerOut){
+  const title=(dir&&dir.episodes&&dir.episodes[0]&&dir.episodes[0].title)||'短剧主视觉';
+  const chars=[...new Set([].concat(...((dir&&dir.episodes)||[]).map(e=>e.characters||[])))].slice(0,3);
+  const items=chars.length?chars.map((name,i)=>({
+    name, tag:i===0?'主角':'角色', note:'根据在线生成的大纲自动兜底提取，建议后续人工微调',
+    appears_in_episodes:[1],
+    image_prompt:`vertical short-drama character portrait of ${name}, cinematic lighting, consistent costume design, ${p.styleFrag} --ar 9:16`
+  })):[{name:title,tag:'主视觉',note:'Stylist 在线生成超时后的兜底资产',appears_in_episodes:[1],image_prompt:`vertical short-drama key visual, dramatic cinematic composition, ${p.styleFrag} --ar 9:16`}];
+  return {groups:[
+    {category:'角色/主视觉',icon:'🎭',items},
+    {category:'核心场景',icon:'🏛️',items:[{name:'核心冲突场景',tag:'场景',note:String(writerOut||'').slice(0,80),appears_in_episodes:[1],image_prompt:`vertical cinematic short-drama scene, tense emotional conflict, ${p.styleFrag} --ar 9:16`}]}
+  ]};
 }
 
 /* init */
