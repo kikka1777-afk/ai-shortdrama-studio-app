@@ -1,0 +1,653 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AI 短剧工作流</title>
+<style>
+  :root{
+    --bg:#0e1015; --panel:#161a22; --panel2:#1d222c; --line:#2a3140;
+    --txt:#e8ebf2; --mut:#8b94a7; --acc:#ff5d73; --acc2:#7c5cff;
+    --ok:#3ddc97; --warn:#ffb454; --chip:#222836; --code:#0b0e13;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 80% -10%,#1b2030 0,var(--bg) 60%);
+    color:var(--txt);font:15px/1.6 -apple-system,"PingFang SC","Microsoft YaHei",Segoe UI,Roboto,sans-serif}
+  a{color:var(--acc2)}
+  header{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:rgba(14,16,21,.85);backdrop-filter:blur(8px);z-index:5}
+  .logo{font-weight:800;font-size:18px;letter-spacing:.5px}
+  .logo b{color:var(--acc)}
+  .pill{font-size:12px;color:var(--mut);border:1px solid var(--line);padding:3px 9px;border-radius:999px}
+  header .sp{flex:1}
+  button{font-family:inherit;cursor:pointer}
+  .btn{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+    padding:8px 14px;border-radius:10px;font-size:13px;transition:.15s}
+  .btn:hover{border-color:var(--acc2)}
+  .btn.primary{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;font-weight:700;padding:11px 20px;font-size:14px}
+  .btn.primary:disabled{opacity:.5;cursor:not-allowed}
+  .wrap{display:grid;grid-template-columns:360px 1fr;gap:20px;max-width:1280px;margin:22px auto;padding:0 22px}
+  @media(max-width:920px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px}
+  .card h3{margin:0 0 12px;font-size:14px;letter-spacing:.3px}
+  label.l{display:block;font-size:12px;color:var(--mut);margin:14px 0 6px}
+  textarea,input[type=number],input[type=password]{width:100%;background:var(--code);color:var(--txt);
+    border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit;resize:vertical}
+  textarea{min-height:150px;line-height:1.7}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:4px}
+  .chip{background:var(--chip);border:1px solid var(--line);color:var(--mut);padding:5px 11px;
+    border-radius:999px;font-size:12.5px;user-select:none}
+  .chip.on{background:rgba(124,92,255,.18);border-color:var(--acc2);color:#cfc4ff}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stabs{display:flex;gap:6px;margin:2px 0 10px}
+  .stab{font-size:12px;color:var(--mut);background:var(--chip);border:1px solid var(--line);
+    padding:5px 12px;border-radius:8px;cursor:pointer}
+  .stab.on{background:var(--panel2);color:var(--txt);border-color:var(--acc2)}
+  .styleGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;max-height:230px;overflow:auto;padding-right:4px}
+  .scard{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;cursor:pointer;
+    background:var(--panel2);transition:.15s}
+  .scard:hover{border-color:var(--acc2)}
+  .scard.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .scard .sw{height:42px;background:linear-gradient(135deg,var(--a),var(--b))}
+  .scard .nm{font-size:11.5px;padding:6px 8px;line-height:1.3}
+  .scard .ck{display:none}
+  .scard.on .ck{position:absolute;top:5px;right:5px;width:16px;height:16px;border-radius:50%;
+    background:var(--acc);color:#fff;font-size:11px;display:grid;place-items:center}
+  .stages{display:flex;flex-direction:column;gap:16px}
+  .stage{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .shead{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid transparent}
+  .stage.open .shead{border-color:var(--line)}
+  .num{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-weight:800;font-size:14px;
+    background:var(--panel2);border:1px solid var(--line);color:var(--mut)}
+  .stage.done .num{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#fff}
+  .stage.run .num{border-color:var(--acc2);color:var(--acc2)}
+  .stitle b{font-size:15px}
+  .stitle span{display:block;font-size:12px;color:var(--mut)}
+  .st{margin-left:auto;font-size:12px;color:var(--mut)}
+  .st.run{color:var(--warn)} .st.done{color:var(--ok)}
+  .sbody{padding:0 18px;max-height:0;overflow:hidden;transition:max-height .4s ease, padding .3s}
+  .stage.open .sbody{max-height:3000px;padding:16px 18px 20px}
+  .prose{white-space:pre-wrap;background:var(--code);border:1px solid var(--line);border-radius:10px;
+    padding:14px;font-size:14px;line-height:1.8}
+  .eps{display:flex;flex-direction:column;gap:10px}
+  .ep{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .ep .top{display:flex;align-items:center;gap:8px}
+  .ep .epn{background:var(--acc);color:#fff;font-weight:800;font-size:12px;border-radius:6px;padding:2px 7px}
+  .ep .dur{font-size:11px;color:var(--mut);border:1px solid var(--line);border-radius:6px;padding:1px 7px}
+  .ep .ttl{font-weight:700}
+  .ep .ol{color:var(--txt);margin:7px 0 0;font-size:13.5px}
+  .ep .hook{margin-top:8px;font-size:12.5px;color:#ffd0b0;background:rgba(255,180,84,.1);
+    border-left:3px solid var(--warn);padding:6px 10px;border-radius:0 8px 8px 0}
+  .ep .cast{margin-top:7px;font-size:11.5px;color:var(--mut)}
+  .styleNote{font-size:12px;color:var(--mut);background:rgba(255,93,115,.1);border:1px solid rgba(255,93,115,.3);
+    border-radius:8px;padding:7px 11px;margin-bottom:14px}
+  .styleNote b{color:var(--acc)}
+  .agroup{margin-bottom:16px}
+  .atitle{font-size:13px;font-weight:700;color:#cfc4ff;margin:4px 0 9px;letter-spacing:.3px}
+  .chars{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:620px){.chars{grid-template-columns:1fr}}
+  .ch{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .ch h4{margin:0 0 2px;font-size:15px}
+  .ch .rt{font-size:11px;color:var(--acc2);text-transform:uppercase;letter-spacing:.5px}
+  .ch .ft{font-size:12.5px;color:var(--mut);margin:8px 0}
+  .ch .ip{font-size:12px;background:var(--code);border:1px solid var(--line);border-radius:8px;padding:9px;
+    color:#bfe3c6;white-space:pre-wrap;word-break:break-word}
+  .ch .cp{font-size:11px;color:var(--mut);margin-top:6px;cursor:pointer}
+  .raw{margin-top:12px}
+  .raw summary{cursor:pointer;font-size:12px;color:var(--mut)}
+  .raw pre{background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px;
+    overflow:auto;font-size:12px;color:#cfe;max-height:320px}
+  .placeholder{color:var(--mut);font-size:13px;padding:6px 2px}
+  .spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--acc2);
+    border-radius:50%;display:inline-block;animation:r 1s linear infinite;vertical-align:-2px}
+  @keyframes r{to{transform:rotate(360deg)}}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;place-items:center;z-index:20}
+  .modal.on{display:grid}
+  .modal .box{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px;width:min(440px,92vw)}
+  .modal h3{margin:0 0 6px}
+  .modal p{color:var(--mut);font-size:13px;margin:0 0 14px}
+  .row{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+  .note{font-size:12px;color:var(--mut);margin-top:10px}
+  .badge{font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(61,220,151,.13);color:var(--ok);border:1px solid rgba(61,220,151,.3)}
+  .badge.demo{background:rgba(124,92,255,.13);color:#cfc4ff;border-color:rgba(124,92,255,.3)}
+  footer{max-width:1280px;margin:10px auto 40px;padding:0 22px;color:var(--mut);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">AI<b>短剧</b>工作流</div>
+  <span class="pill">Writer → Director → Stylist</span>
+  <span id="modeBadge" class="badge demo">演示模式（内置示例）</span>
+  <div class="sp"></div>
+  <button class="btn" onclick="openSettings()">⚙ 设置接口</button>
+</header>
+
+<div class="wrap">
+  <!-- 左侧配置 -->
+  <div class="card" style="align-self:start">
+    <h3>① 输入 & 参数</h3>
+    <label class="l">原始素材 / 创意　<span style="color:var(--mut)">（网文、梗概、人物设定，甚至一句话点子都行）</span></label>
+    <textarea id="raw" placeholder="贴任意素材，或写一句创意，例如：一个上门女婿其实是隐藏的资本大佬，在家宴上被逼离婚……"></textarea>
+
+    <label class="l">题材标签　<span style="color:var(--mut)">（可选 · 多选，不选则由 AI 自行判断）</span></label>
+    <div class="chips" id="chips"></div>
+
+    <label class="l">画风 / 视觉风格　<span style="color:var(--mut)">（单选，决定成片的视觉质感）</span></label>
+    <div class="stabs" id="stabs"></div>
+    <div class="styleGrid" id="styleGrid"></div>
+    <div id="customStyleWrap" style="display:none;margin-top:8px">
+      <input type="text" id="customStyle" placeholder="用英文描述你想要的画风片段，例如：vaporwave neon, soft glow, retro 80s">
+    </div>
+
+    <label class="l">参数（集数 / 时长可灵活设置）</label>
+    <div class="grid2">
+      <div><span class="placeholder">总集数（留空=自动）</span><input type="number" id="p_total" min="1" max="40" placeholder="自动"></div>
+      <div><span class="placeholder">钩子秒数</span><input type="number" id="p_hook" value="5" min="2" max="15"></div>
+      <div><span class="placeholder">第1集时长(秒)</span><input type="number" id="p_ep1" value="120" min="30" max="300"></div>
+      <div><span class="placeholder">每集时长(秒)</span><input type="number" id="p_dur" value="75" min="30" max="300"></div>
+    </div>
+
+    <div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:8px">
+      <button class="btn primary" id="runBtn" onclick="run()">▶ 运行工作流</button>
+      <button class="btn" id="demoBtn" onclick="runDemoBtn()">▶ 跑内置样例</button>
+      <button class="btn" onclick="resetDemo()">重置</button>
+    </div>
+    <p class="note" id="hint">演示模式下会展示内置「都市逆袭」样例的真实产出。配置接口后，可对你自己的素材实时生成。</p>
+  </div>
+
+  <!-- 右侧三段产出 -->
+  <div class="stages">
+    <div class="stage" id="s1">
+      <div class="shead"><div class="num">1</div>
+        <div class="stitle"><b>Writer Agent</b><span>编剧专家 · 重构/扩写任意素材</span></div>
+        <div class="st" id="st1">待运行</div></div>
+      <div class="sbody"><div id="out1"><div class="placeholder">点击「运行工作流」查看重构后的故事文本。</div></div></div>
+    </div>
+    <div class="stage" id="s2">
+      <div class="shead"><div class="num">2</div>
+        <div class="stitle"><b>Director Agent</b><span>分集导演 · 结构化大纲</span></div>
+        <div class="st" id="st2">待运行</div></div>
+      <div class="sbody"><div id="out2"><div class="placeholder">将输出严格 JSON 分集大纲（含钩子、时长、出场角色）。</div></div></div>
+    </div>
+    <div class="stage" id="s3">
+      <div class="shead"><div class="num">3</div>
+        <div class="stitle"><b>Stylist Agent</b><span>美术资产 · 自动提取所有显著视觉元素</span></div>
+        <div class="st" id="st3">待运行</div></div>
+      <div class="sbody"><div id="out3"><div class="placeholder">将通读剧本，自动归类提取全部视觉资产（角色、道具、场景、标志性镜头、色调……类别开放），并各自生成 image_prompt。</div></div></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Writer→Director→Stylist 串联工作流。在线生成经同源 /api/generate 代理调用 OpenAI 兼容接口或 Azure；
+  API Key 可在右上「设置接口」填入，或在 Vercel 项目环境变量里设 OPENAI_API_KEY（无需改代码）。
+</footer>
+
+<!-- 设置弹窗 -->
+<div class="modal" id="modal">
+  <div class="box">
+    <h3>设置模型接口</h3>
+    <p>支持 OpenAI 兼容接口与 Azure OpenAI。配置只存在你本地浏览器 localStorage。留空则只能跑内置示例（除非已在 Vercel 设了环境变量）。</p>
+    <label class="l">接口类型</label>
+    <select id="provider" onchange="toggleProvider()" style="width:100%;background:var(--code);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit">
+      <option value="openai">OpenAI 兼容（OpenAI官方 / 公司中转 / 各类网关）</option>
+      <option value="azure">Azure OpenAI</option>
+    </select>
+    <label class="l" id="lblBase">Base URL（可留空，用 Vercel 环境变量）</label>
+    <input type="text" id="baseUrl" placeholder="https://api.openai.com/v1" style="width:100%;background:var(--code);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit">
+    <label class="l">API Key（可留空，用 Vercel 环境变量 OPENAI_API_KEY）</label>
+    <input type="password" id="apiKey" placeholder="sk-... 或公司分配的 key">
+    <label class="l" id="lblModel">模型名</label>
+    <input type="text" id="model" placeholder="gpt-4o-mini" style="width:100%;background:var(--code);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit">
+    <div id="azureRow" style="display:none">
+      <label class="l">api-version</label>
+      <input type="text" id="apiVersion" placeholder="2024-08-01-preview" style="width:100%;background:var(--code);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit">
+    </div>
+    <div class="row">
+      <button class="btn" onclick="closeSettings()">取消</button>
+      <button class="btn primary" onclick="saveSettings()">保存</button>
+    </div>
+    <p class="note" id="setNote">提示：请求由同源的 /api/generate 代理转发，已避开跨域(CORS)问题。你也可以不在这里填，改在 Vercel 项目设置 → Environment Variables 里设 OPENAI_API_KEY（和可选 OPENAI_BASE_URL），同事打开就不用各自填 key。</p>
+  </div>
+</div>
+
+<script>
+/* ===================== 可调参数 → 提示词注入 ===================== */
+function buildPrompts(p){
+  const hasTags = p.tags && p.tags.length;
+  const tags = hasTags ? JSON.stringify(p.tags) : '（用户未指定，请你根据素材自行判断合适的题材与风格）';
+  const totalLine = p.total ? `目标总集数：${p.total}` : `目标总集数：未指定，请根据剧情体量自行决定合理集数`;
+  return {
+    writer:
+`# Role: 短剧编剧专家 (Writer Agent)
+## Objective
+用户输入的「原始素材」可能是网文、故事梗概、人物设定、新闻、甚至一句话创意——形式不限、长度不限。
+你的任务是据此创作 / 扩写出一个完整、连贯、可拍摄的短剧故事文本：
+- 若素材已是较完整的故事：保留核心矛盾与人物关系，删除无关支线与内心独白，提炼成强节奏版本。
+- 若素材只是点子或片段：在忠于用户核心意图的前提下，合理补全人物、动机、冲突与结局，扩写成完整故事。
+风格、人设与爽点强度向题材标签 ${tags} 靠拢；把慢热铺垫改成开场即冲突。
+## Rules
+1.严禁注水，只保留推动剧情的事件。2.尊重用户核心意图，不擅自引入与设定冲突的神怪/科幻/穿越等元素（除非素材或标签暗示）。3.不分集、不写镜头号。4.用中文输出。
+## Response Format
+直接输出重构/扩写后的故事正文（纯文本，可分段），不要任何前导说明或标题。`,
+    director:
+`# Role: 短剧分集导演 (Director Agent)
+## Objective
+把重构故事拆解为结构化、强推背感的分集大纲。${totalLine}。
+## Rules
+1.第1集时长=${p.ep1}秒；其余每集目标时长=${p.dur}秒（允许±15秒）。
+2.每集最后${p.hook}秒必须制造反转/身份危机/情感悬念，强迫观众点开下一集。
+3.严禁编造，情节必须基于上游文本。4.每集给出出场角色列表。5.中文输出文本字段。
+## Response Format
+严格输出 JSON，不含任何前导词/解释/代码块标记：
+{"total_episodes":6,"episodes":[{"ep_number":1,"title":"","duration_seconds":120,"characters":[""],"hook":"","outline":""}]}`,
+    stylist:
+`# Role: 短剧美术资产专家 (Art Asset Agent)
+## Objective
+通读原始素材与分集大纲，把剧本里**所有视觉特征明显、需要美术统一设计、值得单独出图**的元素全部提取出来，并为每一项生成可直接使用的 image_prompt。
+类别不要僵化在"角色/道具/场景"三类——由你根据剧情自行归类。可选类别包括但不限于：
+角色造型、关键道具、场景、服装/妆造、标志性镜头/视觉符号、特写、载具、动物、特效/超自然元素、片头与字幕风格、整体色调基调……
+但**不是每部剧都需要全部类别**：只为这部剧真正存在且重要的元素开类。
+## Rules
+1.【智能聚焦·最重要】先判断本剧的视觉重心，只挑出真正影响成片、值得单独出图的关键资产。类别要克制——通常 3～6 类即可；某类只有一两个边角元素时，并入最相近的类别，不要为每个小物件单列、把类别撑爆而丧失焦点。
+2.详略得当：核心元素(主角、贯穿全剧的信物、主场景、决定性名场面)写细；次要元素一笔带过或省略。宁缺毋滥，但绝不编造素材里不存在的东西。
+3.每项需可复用：同类元素(尤其角色)核心特征固定，便于多镜头一致。
+4.尽量标注 appears_in_episodes(出现集号)与一句话用途说明 note。
+5.服装、道具质感、场景时代背景需符合标签 ${tags}，不得张冠李戴；原文未写可在合理范围补全。
+6.所有 image_prompt 用英文、贴合短剧竖屏，结尾统一附 --ar 9:16。
+7.【画风统一】全剧采用用户所选画风：「${p.style}」。每一条 image_prompt 都必须在主体描述后追加该画风的英文风格片段：「${p.styleFrag}」，确保全剧视觉风格一致。
+## Response Format
+严格输出 JSON，不含任何前导词或代码块标记。groups 数量与类别由你自定(克制为上)：
+{"groups":[{"category":"类别名(自定)","icon":"一个emoji","items":[{"name":"","tag":"可选短标签如 主角/信物","note":"一句话说明","appears_in_episodes":[1],"image_prompt":"... --ar 9:16"}]}]}`
+  };
+}
+
+/* ===================== 内置示例（真实跑通的产出） ===================== */
+const SAMPLE = {
+  raw:`林羽在云家做了三年上门女婿。三年来，他端茶倒水、洗衣做饭，受尽全家白眼。岳父云海天嫌他是个一无是处的穷小子，连公司前台都敢对他呼来喝去。妻子云楚楚虽未明说嫌弃，却也从未真正正眼看过他。
+
+这天，云氏集团濒临破产，云海天四处求人无门，急得团团转。家宴上，他当着所有亲戚的面，再次把林羽贬得一文不值，逼他签下离婚协议。
+
+没人知道，三年前隐姓埋名的林羽，正是商业版图横跨半个亚洲的"羽盛资本"的真正掌门人。而此刻唯一能救云氏于水火的神秘金主"L先生"，不是别人，正是被他们踩在脚下的这个上门女婿。`,
+  tags:["都市","逆袭","情感","爽文"],
+  writer:`家宴厅里灯火通明，亲戚们的目光像针一样扎在林羽身上。
+
+"三年了，连个正经工作都没有。"岳父云海天把一纸离婚协议拍在桌上，"签了，别再拖累我女儿。"
+
+林羽端着茶杯的手没有抖。三年端茶倒水、受尽白眼，他都记得。他抬眼看向妻子云楚楚——她低着头，没有替他说一句话。
+
+就在云海天逼他落笔的瞬间，云楚楚的手机疯狂震动。云氏集团濒临破产的窟窿，今夜必须有人填上，否则明天就要被申请破产清算。她颤声念出唯一肯出手的神秘金主代号："L……先生。"
+
+林羽放下笔，缓缓站起身。满桌人还在催他签字，却没人发现——那个被他们踩了三年的废物上门女婿，胸前的旧手机亮起一行字：
+
+"羽盛资本掌门人林羽：是否批准对云氏的全额注资？"
+
+他要的，从来不是签字，而是一场当众的清算。`,
+  director:{
+    total_episodes:6,
+    episodes:[
+      {ep_number:1,title:"废婿家宴",duration_seconds:120,characters:["林羽","云海天","云楚楚"],
+       hook:"岳父拍下离婚协议逼他签字，所有人都笑他是废物——可他的旧手机突然亮起：羽盛资本待你批示。",
+       outline:"建立林羽三年上门女婿、受尽白眼的处境。家宴上岳父当众羞辱并逼签离婚协议，妻子沉默不语。结尾揭开他隐藏身份的第一道缝。"},
+      {ep_number:2,title:"破产倒计时",duration_seconds:75,characters:["云海天","云楚楚","林羽"],
+       hook:"全城资本无人敢接盘，唯一愿出手的'L先生'要求：必须由林羽亲自引荐。",
+       outline:"云氏今夜不注资就要清算，云海天四处碰壁。神秘金主L先生浮出水面，却点名要见那个被全家看不起的女婿。"},
+      {ep_number:3,title:"L先生是谁",duration_seconds:75,characters:["云楚楚","林羽","云海天"],
+       hook:"云楚楚翻出三年前的旧照，照片上L先生的侧脸，竟和身边洗碗的丈夫一模一样。",
+       outline:"全家围绕'如何攀上L先生'内斗。云楚楚开始怀疑林羽的真实身份，回忆起三年前的蛛丝马迹。"},
+      {ep_number:4,title:"当众摊牌",duration_seconds:75,characters:["林羽","云海天","云楚楚"],
+       hook:"林羽撕碎离婚协议，一句'云氏的命，我救'，让满堂亲戚瞬间噤声。",
+       outline:"二次家宴，岳父仍在羞辱。林羽当众接管谈判，亮明羽盛资本掌门身份，反转全场气场。"},
+      {ep_number:5,title:"三年清算",duration_seconds:75,characters:["云海天","林羽","云楚楚"],
+       hook:"岳父跪地求注资，林羽却问云楚楚：这三年，你可曾真正看过我一眼？",
+       outline:"曾经踩他的人纷纷反转嘴脸。林羽不急于救场，而是逐一清算三年来的羞辱，把选择权交还给妻子。"},
+      {ep_number:6,title:"她的选择",duration_seconds:90,characters:["云楚楚","林羽"],
+       hook:"云楚楚没有去接那张支票，而是握住了他端了三年茶的手——但门外，另一个女人喊出了林羽的真名。",
+       outline:"云氏获救，但林羽要的是真心而非感激。云楚楚在利益与情义间做出选择。结尾抛出新人物，为续集留钩。"}
+    ]
+  },
+  stylist:{
+    groups:[
+      {category:"角色造型",icon:"🎭",items:[
+        {name:"林羽",tag:"主角",note:"28岁，东亚男性，眉眼锐利、下颌线分明、平静内敛；利落黑色短发。服装前期：洗到发白的灰衬衫+围裙；摊牌后：剪裁极佳的深黑高定西装",
+         image_prompt:"Cinematic vertical portrait of a 28-year-old East Asian man, sharp calm eyes, defined jawline, neat black short hair, faded gray shirt with an apron, dim warm dining-hall light, shallow depth of field, photorealistic short-drama still --ar 9:16"},
+        {name:"云楚楚",tag:"女主",note:"26岁，清冷精致、眼神带犹豫；低马尾几缕碎发。米白真丝衬衫+珍珠耳钉",
+         image_prompt:"Cinematic vertical portrait of an elegant 26-year-old East Asian woman, cool delicate features, hesitant gaze, low ponytail, ivory silk blouse, pearl earrings, soft indoor lighting, photorealistic short-drama still --ar 9:16"},
+        {name:"云海天",tag:"反派",note:"55岁，面相精明、眼角带傲慢；梳理整齐的灰白背头。暗纹深蓝西装+金表",
+         image_prompt:"Cinematic vertical portrait of a 55-year-old East Asian businessman, shrewd arrogant expression, slicked-back graying hair, dark blue patterned suit, gold watch, luxurious dim dining room, photorealistic short-drama still --ar 9:16"}
+      ]},
+      {category:"关键道具",icon:"🗝️",items:[
+        {name:"离婚协议",appears_in_episodes:[1,4],note:"核心矛盾引爆物，第4集被当众撕碎",
+         image_prompt:"Close-up of a divorce agreement document on a dark wooden dining table, a fountain pen beside it, dramatic warm spotlight, photorealistic short-drama prop still --ar 9:16"},
+        {name:"林羽的旧手机",appears_in_episodes:[1,2,4],note:"廉价外壳，实为羽盛资本掌门人的加密终端，关键反转道具",
+         image_prompt:"Close-up of an old worn smartphone screen glowing in the dark, displaying an encrypted corporate authorization message, blurred luxury background, cinematic photorealistic prop still --ar 9:16"},
+        {name:"三年前的旧照片",appears_in_episodes:[3],note:"照片中'L先生'侧脸与丈夫一致，推动身份揭晓",
+         image_prompt:"A faded old printed photograph held by a woman's hand, blurred side profile of a man, nostalgic warm tone, shallow focus, photorealistic short-drama prop still --ar 9:16"},
+        {name:"L先生的注资支票",appears_in_episodes:[5,6],note:"救云氏于破产的巨额支票，象征筹码与情义考验",
+         image_prompt:"Close-up of a high-value corporate check with a large sum on a glossy black table under cold office lighting, photorealistic short-drama prop still --ar 9:16"}
+      ]},
+      {category:"场景",icon:"🏛️",items:[
+        {name:"云家家宴厅",appears_in_episodes:[1,4,5],note:"全剧主战场，红木长桌、亲戚环坐；氛围：奢华压抑、暖黄吊灯、暗藏针锋",
+         image_prompt:"Interior of a luxurious traditional Chinese family banquet hall, long redwood dining table, relatives seated, warm chandelier light, tense oppressive atmosphere, cinematic wide establishing shot --ar 9:16"},
+        {name:"云氏集团会议室",appears_in_episodes:[2,6],note:"商战注资谈判场景；氛围：冷峻、玻璃幕墙、夜景灯光",
+         image_prompt:"Modern high-rise corporate boardroom at night, glass curtain walls with city lights, cold blue tone, empty leather chairs, tense business atmosphere, cinematic establishing shot --ar 9:16"},
+        {name:"云家厨房",appears_in_episodes:[1,3],note:"林羽隐忍受辱的日常空间，与真实身份形成反差；氛围：狭小、暖光、生活感",
+         image_prompt:"A modest home kitchen at night, a man washing dishes alone under a single warm light, mundane domestic mood, quiet melancholy, photorealistic short-drama establishing shot --ar 9:16"}
+      ]},
+      {category:"标志性镜头 / 视觉符号",icon:"✨",items:[
+        {name:"手机注资弹窗特写",appears_in_episodes:[1,4],note:"旧手机屏幕亮起'羽盛资本待批示'加密弹窗——全剧最大反转的视觉符号",
+         image_prompt:"Extreme close-up of an old smartphone screen lighting up with an encrypted corporate authorization popup, reflected in a man's calm eye, dark dramatic background, cinematic short-drama insert shot --ar 9:16"},
+        {name:"撕碎离婚协议（慢镜）",appears_in_episodes:[4],note:"林羽当众撕碎协议，纸屑慢镜飘落，象征三年隐忍的爆发",
+         image_prompt:"Slow-motion shot of torn divorce-agreement paper fragments falling through the air in a banquet hall, dramatic backlight, cinematic short-drama insert --ar 9:16"},
+        {name:"换装回身（名场面）",appears_in_episodes:[4],note:"脱下围裙换上高定西装的转身——废婿到掌门的造型反差",
+         image_prompt:"Low-angle hero shot of a man turning around in slow motion, transforming from a humble apron to a sharp black tailored suit, dramatic rim light, cinematic short-drama still --ar 9:16"}
+      ]},
+      {category:"整体色调基调",icon:"🎨",items:[
+        {name:"前期 · 暖金压抑",appears_in_episodes:[1,2,3],note:"受辱阶段：暖黄吊灯、低饱和、封闭压抑",
+         image_prompt:"Color grading reference board, warm amber low-saturation oppressive tone, dim chandelier interior, claustrophobic mood --ar 9:16"},
+        {name:"后期 · 冷峻反转",appears_in_episodes:[4,5,6],note:"掌权阶段：冷蓝商战、高对比、凌厉气场",
+         image_prompt:"Color grading reference board, cold blue high-contrast corporate tone, sharp powerful atmosphere --ar 9:16"}
+      ]}
+    ]
+  }
+};
+
+/* ===================== UI 状态 ===================== */
+const ALL_TAGS=["都市","逆袭","情感","治愈","古装","虐恋","霸总","甜宠","悬疑","复仇","大叔","职场"];
+let activeTags=new Set(SAMPLE.tags);
+
+function initChips(){
+  const c=document.getElementById('chips'); c.innerHTML='';
+  ALL_TAGS.forEach(t=>{
+    const el=document.createElement('span');
+    el.className='chip'+(activeTags.has(t)?' on':'');
+    el.textContent=t;
+    el.onclick=()=>{activeTags.has(t)?activeTags.delete(t):activeTags.add(t);el.classList.toggle('on');};
+    c.appendChild(el);
+  });
+}
+
+/* ---------- 画风 / 视觉风格 ---------- */
+const STYLES={
+  "Live Action":[
+    {n:"Theatrical Cinematic",f:"theatrical cinematic look, anamorphic lens, film grain, dramatic key lighting, high production value",a:"#3a3026",b:"#0d0b08"},
+    {n:"Modern Micro-Drama",f:"modern Chinese micro-drama look, glossy high-saturation, crisp vertical framing, bright commercial lighting",a:"#2e3a4d",b:"#11161f"},
+    {n:"French Arthouse",f:"French arthouse aesthetic, naturalistic soft light, muted palette, intimate handheld framing",a:"#43463a",b:"#16170f"},
+    {n:"Monumental Desert Epic",f:"monumental desert epic, vast sweeping landscape, golden sand, epic scale, warm dramatic light",a:"#6e5326",b:"#241a0c"},
+    {n:"Bollywood",f:"vibrant Bollywood style, saturated jewel tones, ornate decor, festive warm lighting",a:"#7a2436",b:"#2a0c13"},
+    {n:"Nordic Noir",f:"Nordic noir, cold desaturated palette, overcast moody light, bleak minimalism",a:"#2b3640",b:"#0d1216"},
+    {n:"Golden Western",f:"classic western, golden-hour dust, warm amber tones, wide vistas",a:"#6b4a23",b:"#23170a"},
+    {n:"Pop Dystopia",f:"pop dystopia, teal-and-green palette, stylized uniforms, surreal bright contrast",a:"#1f5a4d",b:"#0a1f1a"},
+    {n:"Prestige HBO Drama",f:"prestige HBO drama, naturalistic cinematic, refined low-key lighting, premium texture",a:"#33302c",b:"#100f0d"},
+    {n:"Gritty Desert Crime",f:"gritty desert crime, harsh sunlight, dusty earthy tones, raw realistic grain",a:"#5e4a2e",b:"#1f1810"},
+    {n:"Wes Anderson",f:"Wes Anderson style, symmetrical composition, pastel palette, flat frontal framing, whimsical",a:"#9a6a6a",b:"#3a2424"},
+    {n:"David Lynch",f:"David Lynch style, eerie surreal mood, deep shadows, uncanny red tones, dreamlike",a:"#5a1f22",b:"#1a0809"},
+    {n:"Quentin Tarantino",f:"Tarantino style, stylized retro pulp, bold saturated color, dynamic low angles",a:"#6e2a1f",b:"#240d0a"},
+    {n:"Christopher Nolan",f:"Christopher Nolan style, IMAX-scale, desaturated cool tones, grand realistic spectacle",a:"#2c3640",b:"#0e1216"},
+    {n:"Blade Runner",f:"Blade Runner style, neon-noir cyberpunk, rain-soaked, teal-orange neon haze",a:"#7a3a1a",b:"#16202a"},
+    {n:"Modern K-Drama",f:"modern K-drama, soft glowing skin tones, clean pastel palette, romantic bokeh",a:"#7a5a66",b:"#241a1f"},
+    {n:"Crime Drama",f:"gritty crime drama, urban night, hard shadows, cold steely palette",a:"#2a2e36",b:"#0d0f13"},
+    {n:"Game of Thrones Epic",f:"epic medieval fantasy, GoT-style, muted earthy tones, candle-lit grandeur, weathered realism",a:"#4a3f2e",b:"#181410"},
+    {n:"European Epic",f:"European historical epic, classical painterly light, rich period detail",a:"#5a4632",b:"#1c1610"}
+  ],
+  "Animation":[
+    {n:"Japanese Anime",f:"Japanese anime style, cel-shaded, expressive eyes, vibrant clean lines",a:"#3a5a8a",b:"#101a2a"},
+    {n:"3D Pixar Style",f:"3D Pixar-style render, soft global illumination, rounded stylized characters, warm appeal",a:"#5a7a3a",b:"#1a2410"},
+    {n:"国漫 Donghua",f:"Chinese donghua style, elegant ink-influenced 3D, flowing robes, cinematic fantasy",a:"#7a3a4a",b:"#241016"},
+    {n:"Studio Ghibli",f:"Studio Ghibli style, hand-painted backgrounds, soft watercolor light, gentle wholesome mood",a:"#4a7a6a",b:"#16241f"},
+    {n:"Cyberpunk Anime",f:"cyberpunk anime, neon-drenched, high-contrast cel shading, futuristic",a:"#6a2a7a",b:"#1a0a24"},
+    {n:"American Cartoon",f:"American cartoon style, bold outlines, flat bright colors, exaggerated expressions",a:"#8a6a2a",b:"#241a0a"},
+    {n:"Graphic Novel",f:"graphic novel style, inked linework, halftone shading, high-contrast panels",a:"#3a3a3a",b:"#101010"}
+  ]
+};
+let styleTab="Live Action";
+let currentStyle={n:"Theatrical Cinematic",f:STYLES["Live Action"][0].f};
+
+function initStyles(){
+  const tabsEl=document.getElementById('stabs'); tabsEl.innerHTML='';
+  ["Live Action","Animation","自定义"].forEach(t=>{
+    const el=document.createElement('span');
+    el.className='stab'+(styleTab===t?' on':''); el.textContent=t;
+    el.onclick=()=>{styleTab=t;renderStyleTab();};
+    tabsEl.appendChild(el);
+  });
+  renderStyleTab();
+}
+function renderStyleTab(){
+  document.querySelectorAll('.stab').forEach(e=>e.classList.toggle('on',e.textContent===styleTab));
+  const grid=document.getElementById('styleGrid'), cw=document.getElementById('customStyleWrap');
+  if(styleTab==='自定义'){grid.innerHTML='';cw.style.display='block';return;}
+  cw.style.display='none'; grid.innerHTML='';
+  STYLES[styleTab].forEach(s=>{
+    const card=document.createElement('div');
+    card.className='scard'+(currentStyle.n===s.n?' on':'');
+    card.style.setProperty('--a',s.a); card.style.setProperty('--b',s.b);
+    card.innerHTML=`<div class="sw"></div><div class="nm">${s.n}</div><div class="ck">✓</div>`;
+    card.onclick=()=>{currentStyle={n:s.n,f:s.f};renderStyleTab();};
+    grid.appendChild(card);
+  });
+}
+function getStyle(){
+  if(styleTab==='自定义'){
+    const t=(document.getElementById('customStyle').value||'').trim();
+    return{n:t?('自定义: '+t.slice(0,24)):'自定义',f:t||'cinematic look'};
+  }
+  return currentStyle;
+}
+// 把所选画风注入到 image_prompt（在 --ar 前插入）
+function applyStyle(prompt){
+  const st=getStyle(); if(!st.f) return prompt;
+  let base=prompt.replace(/\s*--ar\s*9:16\s*$/i,'').trim().replace(/[,，]\s*$/,'');
+  return base+', '+st.f+' --ar 9:16';
+}
+
+function resetDemo(){
+  document.getElementById('raw').value=SAMPLE.raw;
+  activeTags=new Set(SAMPLE.tags); initChips();
+  styleTab="Live Action"; currentStyle={n:"Theatrical Cinematic",f:STYLES["Live Action"][0].f}; initStyles();
+  document.getElementById('p_total').value=''; document.getElementById('p_hook').value=5;
+  document.getElementById('p_ep1').value=120; document.getElementById('p_dur').value=75;
+  ['1','2','3'].forEach(i=>{
+    const s=document.getElementById('s'+i); s.className='stage';
+    document.getElementById('st'+i).textContent='待运行'; document.getElementById('st'+i).className='st';
+  });
+  document.getElementById('out1').innerHTML='<div class="placeholder">点击「运行工作流」查看重构后的故事文本。</div>';
+  document.getElementById('out2').innerHTML='<div class="placeholder">将输出严格 JSON 分集大纲（含钩子、时长、出场角色）。</div>';
+  document.getElementById('out3').innerHTML='<div class="placeholder">将通读剧本，自动归类提取全部视觉资产（类别开放），并各自生成 image_prompt。</div>';
+}
+
+/* ===================== 设置 / 接口 ===================== */
+function openSettings(){
+  document.getElementById('provider').value=localStorage.getItem('oa_provider')||'openai';
+  document.getElementById('baseUrl').value=localStorage.getItem('oa_base')||'';
+  document.getElementById('apiKey').value=localStorage.getItem('oa_key')||'';
+  document.getElementById('model').value=localStorage.getItem('oa_model')||'gpt-4o-mini';
+  document.getElementById('apiVersion').value=localStorage.getItem('oa_apiver')||'2024-08-01-preview';
+  toggleProvider();
+  document.getElementById('modal').classList.add('on');
+}
+function toggleProvider(){
+  const az=document.getElementById('provider').value==='azure';
+  document.getElementById('azureRow').style.display=az?'block':'none';
+  document.getElementById('lblBase').textContent=az?'Endpoint（如 https://xxx.openai.azure.com）':'Base URL（可留空，用 Vercel 环境变量）';
+  document.getElementById('lblModel').textContent=az?'部署名 Deployment':'模型名';
+  document.getElementById('baseUrl').placeholder=az?'https://your-resource.openai.azure.com':'https://api.openai.com/v1';
+  document.getElementById('model').placeholder=az?'你的 deployment 名称':'gpt-4o-mini';
+}
+function closeSettings(){document.getElementById('modal').classList.remove('on');}
+function saveSettings(){
+  localStorage.setItem('oa_provider',document.getElementById('provider').value);
+  localStorage.setItem('oa_base',document.getElementById('baseUrl').value.trim());
+  localStorage.setItem('oa_key',document.getElementById('apiKey').value.trim());
+  localStorage.setItem('oa_model',(document.getElementById('model').value.trim()||'gpt-4o-mini'));
+  localStorage.setItem('oa_apiver',(document.getElementById('apiVersion').value.trim()||'2024-08-01-preview'));
+  closeSettings(); refreshMode();
+}
+function refreshMode(){
+  const b=document.getElementById('modeBadge'); const has=!!localStorage.getItem('oa_key');
+  const prov=localStorage.getItem('oa_provider')==='azure'?'Azure':'OpenAI兼容';
+  if(has){b.textContent='在线模式（'+prov+'）';b.className='badge';
+    document.getElementById('hint').textContent='已配置接口：「运行工作流」将对当前素材、标签、画风实时生成；「跑内置样例」随时可看演示。';}
+  else{b.textContent='演示模式（内置示例）';b.className='badge demo';
+    document.getElementById('hint').textContent='直接点「运行工作流」即看内置「都市逆袭」样例的真实产出；切换画风会实时改写 image_prompt。配置接口（或在 Vercel 设环境变量）后即可跑你们自己的素材。';}
+}
+
+/* ===================== 渲染 ===================== */
+function setStage(i,state){ // 'run' | 'done'
+  const s=document.getElementById('s'+i), st=document.getElementById('st'+i);
+  s.classList.add('open');
+  if(state==='run'){s.classList.add('run');s.classList.remove('done');st.textContent='生成中';st.className='st run';
+    st.innerHTML='<span class="spin"></span> 生成中';}
+  if(state==='done'){s.classList.remove('run');s.classList.add('done');st.textContent='完成 ✓';st.className='st done';}
+}
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+
+function renderWriter(text){document.getElementById('out1').innerHTML='<div class="prose">'+esc(text)+'</div>';}
+function renderDirector(d){
+  let h='<div class="eps">';
+  d.episodes.forEach(e=>{
+    h+=`<div class="ep"><div class="top"><span class="epn">EP${e.ep_number}</span>
+      <span class="ttl">${esc(e.title)}</span><span class="dur">${e.duration_seconds}s</span></div>
+      <div class="ol">${esc(e.outline)}</div>
+      <div class="hook">🪝 钩子：${esc(e.hook)}</div>
+      <div class="cast">出场：${(e.characters||[]).map(esc).join(' · ')}</div></div>`;
+  });
+  h+='</div>';
+  h+='<details class="raw"><summary>查看原始 JSON（交给研发的结构化数据）</summary><pre>'+esc(JSON.stringify(d,null,2))+'</pre></details>';
+  document.getElementById('out2').innerHTML=h;
+}
+function copyBtn(){return '<div class="cp" onclick="navigator.clipboard&&navigator.clipboard.writeText(this.previousElementSibling.textContent)">📋 复制 image_prompt</div>';}
+function epTag(arr){return (arr&&arr.length)?'<span class="dur">EP '+arr.join(',')+'</span>':'';}
+function assetGroup(title,icon,inner){return `<div class="agroup"><div class="atitle">${icon} ${title}</div>${inner}</div>`;}
+
+function renderStylist(data,applySty){
+  data=normalizeAssets(data);
+  const ip=p=>esc(applySty?applyStyle(p):p);  // 演示模式下把所选画风注入 prompt
+  const groups=data.groups||[];
+  const total=groups.reduce((a,g)=>a+((g.items||[]).length),0);
+  let h='<div class="styleNote">🎨 当前画风：<b>'+esc(getStyle().n)+'</b> · 自动提取 '+groups.length+' 类、共 '+total+' 项视觉资产，已注入画风</div>';
+
+  groups.forEach(g=>{
+    let inner='<div class="chars">';
+    (g.items||[]).forEach(it=>{
+      inner+=`<div class="ch"><div class="top" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <h4 style="margin:0">${esc(it.name||'')}</h4>${it.tag?'<span class="rt">'+esc(it.tag)+'</span>':''}${epTag(it.appears_in_episodes)}</div>
+        ${it.note?'<div class="ft">'+esc(it.note)+'</div>':''}
+        <div class="ip">${ip(it.image_prompt||'')}</div>${copyBtn()}</div>`;});
+    inner+='</div>';
+    h+=assetGroup(esc(g.category||'资产')+' · '+((g.items||[]).length),(g.icon||'🎬'),inner);
+  });
+
+  h+='<details class="raw"><summary>查看原始 JSON（资产清单，交给研发/美术）</summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details>';
+  document.getElementById('out3').innerHTML=h;
+}
+
+// 把各种可能的输出形态统一成 {groups:[{category,icon?,items:[{name,tag?,note?,appears_in_episodes?,image_prompt}]}]}
+function normalizeAssets(data){
+  if(!data) return {groups:[]};
+  if(Array.isArray(data)) return {groups:[{category:'角色造型',icon:'🎭',items:data.map(toItem)}]};
+  if(data.groups) return data;
+  // 兼容旧的 characters/props/scenes 三段式
+  const g=[];
+  if(data.characters) g.push({category:'角色造型',icon:'🎭',items:data.characters.map(toItem)});
+  if(data.props) g.push({category:'关键道具',icon:'🗝️',items:data.props.map(toItem)});
+  if(data.scenes) g.push({category:'场景',icon:'🏛️',items:data.scenes.map(toItem)});
+  return g.length?{groups:g}:{groups:[]};
+}
+function toItem(x){
+  if(x.image_prompt&&x.name&&!x.character_name) return x; // 已是新格式
+  const f=x.features||{};
+  const note=x.note||[x.description, f.age, f.face, f.hair&&('发型:'+f.hair), x.outfit&&('服装:'+x.outfit), x.mood&&('氛围:'+x.mood)].filter(Boolean).join(' · ');
+  return {name:x.name||x.character_name||'', tag:x.tag||x.role_type||'', note, appears_in_episodes:x.appears_in_episodes, image_prompt:x.image_prompt||''};
+}
+
+/* ===================== 运行 ===================== */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function gatherParams(){
+  const st=getStyle();
+  return{
+    raw:document.getElementById('raw').value.trim(),
+    tags:[...activeTags],
+    style:st.n, styleFrag:st.f,
+    total:parseInt(document.getElementById('p_total').value)||null,
+    hook:parseInt(document.getElementById('p_hook').value)||5,
+    ep1:parseInt(document.getElementById('p_ep1').value)||120,
+    dur:parseInt(document.getElementById('p_dur').value)||75
+  };
+}
+
+function resetStages(){
+  ['1','2','3'].forEach(i=>{const s=document.getElementById('s'+i);s.className='stage';
+    const st=document.getElementById('st'+i);st.textContent='待运行';st.className='st';});
+}
+async function run(){
+  const btn=document.getElementById('runBtn'),btn2=document.getElementById('demoBtn');
+  btn.disabled=true; if(btn2)btn2.disabled=true; resetStages();
+  const p=gatherParams();
+  try{
+    await runLive(p);
+  }catch(err){
+    alert('在线生成失败：'+err.message+'\n\n已自动回退为内置示例。\n请到「设置接口」检查 Key/地址/部署名，或在 Vercel 项目里设置 OPENAI_API_KEY 环境变量。');
+    await runDemo();
+  }
+  btn.disabled=false; if(btn2)btn2.disabled=false;
+}
+// 始终跑内置样例（演示走查，不论是否配置了接口）
+async function runDemoBtn(){
+  const btn=document.getElementById('runBtn'),btn2=document.getElementById('demoBtn');
+  btn.disabled=true; if(btn2)btn2.disabled=true; resetStages();
+  await runDemo();
+  btn.disabled=false; if(btn2)btn2.disabled=false;
+}
+
+// 演示模式：逐段展示内置真实产出
+async function runDemo(){
+  setStage(1,'run'); await sleep(700); renderWriter(SAMPLE.writer); setStage(1,'done');
+  await sleep(400); setStage(2,'run'); await sleep(900); renderDirector(SAMPLE.director); setStage(2,'done');
+  await sleep(400); setStage(3,'run'); await sleep(900); renderStylist(SAMPLE.stylist,true); setStage(3,'done');
+}
+
+// 在线模式：经同源 /api/generate 代理调用（避免跨域；key 可来自页面或 Vercel 环境变量）
+async function callLLM(sys,user,wantJSON){
+  const provider=localStorage.getItem('oa_provider')||'openai';
+  const key=localStorage.getItem('oa_key')||'';
+  const base=localStorage.getItem('oa_base')||'';
+  const model=localStorage.getItem('oa_model')||'gpt-4o-mini';
+  const apiVersion=localStorage.getItem('oa_apiver')||'2024-08-01-preview';
+  const r=await fetch('/api/generate',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({provider,key,base,model,apiVersion,system:sys,user,wantJSON})});
+  const j=await r.json().catch(()=>({error:'服务器返回非 JSON（可能未部署 /api/generate）'}));
+  if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
+  return j.content;
+}
+function parseJSON(s){
+  let t=s.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+  return JSON.parse(t);
+}
+async function runLive(p){
+  if(!p.raw){throw new Error('请先在左侧填入原始素材/创意');}
+  const P=buildPrompts(p);
+  // Writer
+  setStage(1,'run');
+  const writerOut=await callLLM(P.writer,
+    `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定，自行判断）'}\n【原始素材/创意】\n${p.raw}`,false);
+  renderWriter(writerOut); setStage(1,'done');
+  // Director (强制 JSON)
+  setStage(2,'run');
+  const dirRaw=await callLLM(P.director,
+    `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【重构故事】\n${writerOut}`,true);
+  const dir=parseJSON(dirRaw); renderDirector(dir); setStage(2,'done');
+  // Stylist (输出开放分组资产)
+  setStage(3,'run');
+  const styRaw=await callLLM(P.stylist,
+    `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【画风】${p.style}\n【原始素材】\n${p.raw}\n【分集大纲】\n${JSON.stringify(dir)}`,true);
+  const sty=parseJSON(styRaw);
+  renderStylist(sty,false); setStage(3,'done');  // 在线模式由模型已注入画风
+}
+
+/* init */
+resetDemo(); initChips(); refreshMode();
+</script>
+</body>
+</html>
