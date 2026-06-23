@@ -475,9 +475,24 @@ function toggleProvider(){
   document.getElementById('model').placeholder=az?'你的 deployment 名称':'gpt-4o-mini';
 }
 function closeSettings(){document.getElementById('modal').classList.remove('on');}
+function normalizeBaseInput(v){
+  let b=(v||'').trim();
+  if(!b) return '';
+  try{
+    const u=new URL(b);
+    u.hash=''; u.search='';
+    if(/\/chat\/completions$/i.test(u.pathname)) return u.toString().replace(/\/+$/,'');
+    const versionPath=u.pathname.match(/^(.*?\/v\d+)(?:\/.*)?$/i);
+    if(versionPath){u.pathname=versionPath[1]; return u.toString().replace(/\/+$/,'');}
+    const clean=u.pathname.replace(/\/+$/,'');
+    const dashboard=!clean||clean==='/'||/\/(?:login|dashboard|console|admin|app|home)$/i.test(clean);
+    u.pathname=(dashboard?'':clean)+'/v1';
+    return u.toString().replace(/\/+$/,'');
+  }catch(e){return b;}
+}
 function saveSettings(){
   localStorage.setItem('oa_provider',document.getElementById('provider').value);
-  localStorage.setItem('oa_base',document.getElementById('baseUrl').value.trim());
+  localStorage.setItem('oa_base',normalizeBaseInput(document.getElementById('baseUrl').value));
   localStorage.setItem('oa_key',document.getElementById('apiKey').value.trim());
   localStorage.setItem('oa_model',(document.getElementById('model').value.trim()||'gpt-4o-mini'));
   localStorage.setItem('oa_apiver',(document.getElementById('apiVersion').value.trim()||'2024-08-01-preview'));
