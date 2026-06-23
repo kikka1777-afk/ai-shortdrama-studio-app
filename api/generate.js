@@ -26,6 +26,11 @@ function normalizeOpenAIBase(raw) {
   }
 }
 
+function summarizeHtml(text) {
+  const title = (text.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1];
+  return title ? title.replace(/\s+/g, ' ').trim().slice(0, 120) : 'no title';
+}
+
 module.exports = async (req, res) => {
   // 只接受 POST
   if (req.method !== 'POST') {
@@ -98,7 +103,7 @@ module.exports = async (req, res) => {
     if (!upstream.ok) {
       if (htmlHint) {
         res.status(upstream.status).json({
-          error: '上游返回了 HTML 页面而不是 JSON。请检查 API Base / OPENAI_BASE_URL：它应该是 OpenAI 兼容接口地址，例如 https://api.openai.com/v1，而不是网关首页或控制台页面。当前请求地址：' + url
+          error: '上游返回了 HTML 页面而不是 JSON。当前请求地址：' + url + '；上游状态：HTTP ' + upstream.status + '；Content-Type：' + (upstream.headers.get('content-type') || 'unknown') + '；HTML title：' + summarizeHtml(text)
         });
         return;
       }
@@ -111,7 +116,7 @@ module.exports = async (req, res) => {
     catch (e) {
       if (htmlHint) {
         res.status(502).json({
-          error: '上游返回了 HTML 页面而不是 JSON。请检查 API Base / OPENAI_BASE_URL：它应该是 OpenAI 兼容接口地址，例如 https://api.openai.com/v1，而不是网关首页或控制台页面。当前请求地址：' + url
+          error: '上游返回了 HTML 页面而不是 JSON。当前请求地址：' + url + '；上游状态：HTTP ' + upstream.status + '；Content-Type：' + (upstream.headers.get('content-type') || 'unknown') + '；HTML title：' + summarizeHtml(text)
         });
         return;
       }
