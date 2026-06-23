@@ -69,14 +69,30 @@ module.exports = async (req, res) => {
     });
 
     const text = await upstream.text();
+    const trimmed = text.trim();
+    const htmlHint = /^<!doctype html>|^<html[\s>]/i.test(trimmed);
     if (!upstream.ok) {
+      if (htmlHint) {
+        res.status(upstream.status).json({
+          error: '上游返回了 HTML 页面而不是 JSON。请检查 API Base / OPENAI_BASE_URL：它应该是 OpenAI 兼容接口地址，例如 https://api.openai.com/v1，而不是网关首页或控制台页面。'
+        });
+        return;
+      }
       res.status(upstream.status).json({ error: '上游接口错误 ' + upstream.status + '：' + text.slice(0, 500) });
       return;
     }
 
     let data;
     try { data = JSON.parse(text); }
-    catch (e) { res.status(502).json({ error: '上游返回非 JSON：' + text.slice(0, 300) }); return; }
+    catch (e) {
+      if (htmlHint) {
+        res.status(502).json({
+          error: '上游返回了 HTML 页面而不是 JSON。请检查 API Base / OPENAI_BASE_URL：它应该是 OpenAI 兼容接口地址，例如 https://api.openai.com/v1，而不是网关首页或控制台页面。'
+        });
+        return;
+      }
+      res.status(502).json({ error: '上游返回非 JSON：' + text.slice(0, 300) }); return;
+    }
 
     const content = (data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
     res.status(200).json({ content });
