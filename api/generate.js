@@ -1,6 +1,6 @@
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_MODEL = 'gpt-4o-mini';
-const REQUEST_TIMEOUT_MS = 58000;
+const REQUEST_TIMEOUT_MS = 59000;
 
 function normalizeOpenAIBase(raw) {
   const fallback = DEFAULT_BASE_URL;
@@ -201,7 +201,7 @@ module.exports = async (req, res) => {
     const payload = {
       model: model || DEFAULT_MODEL,
       temperature: wantJSON ? 0.3 : 0.7,
-      max_tokens: wantJSON ? 2000 : 4000,
+      max_tokens: wantJSON ? 900 : 1200,
       messages
     };
     if (wantJSON) payload.response_format = { type: 'json_object' };
