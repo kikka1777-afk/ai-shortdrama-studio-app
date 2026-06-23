@@ -1,6 +1,6 @@
 const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
 const DEFAULT_MODEL = 'gpt-4o-mini';
-const REQUEST_TIMEOUT_MS = 59000;
+const REQUEST_TIMEOUT_MS = 290000;
 
 function normalizeOpenAIBase(raw) {
   const fallback = DEFAULT_BASE_URL;
