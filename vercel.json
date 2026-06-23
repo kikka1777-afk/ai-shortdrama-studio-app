@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/generate.js": {
+      "regions": ["hkg1"]
+    }
+  }
+}
