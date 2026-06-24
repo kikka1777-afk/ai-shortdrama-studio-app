@@ -201,7 +201,7 @@ module.exports = async (req, res) => {
     const payload = {
       model: model || DEFAULT_MODEL,
       temperature: wantJSON ? 0.3 : 0.7,
-      max_tokens: wantJSON ? 900 : 1200,
+      max_tokens: wantJSON ? 3000 : 1400,
       messages
     };
     if (wantJSON) payload.response_format = { type: 'json_object' };
