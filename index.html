@@ -116,7 +116,7 @@
 <body>
 <header>
   <div class="logo">AI<b>短剧</b>工作流</div>
-  <span class="pill">Writer → Director → Stylist</span>
+  <span class="pill">Writer → Director → Storyboard → Stylist</span>
   <span id="modeBadge" class="badge demo">演示模式（内置示例）</span>
   <div class="sp"></div>
   <button class="btn" id="settingsBtn" onclick="openSettings()" style="display:none">⚙ 设置接口</button>
@@ -155,7 +155,7 @@
     <p class="note" id="hint">演示模式下会展示内置「都市逆袭」样例的真实产出。配置接口后，可对你自己的素材实时生成。</p>
   </div>
 
-  <!-- 右侧三段产出 -->
+  <!-- 右侧四段产出 -->
   <div class="stages">
     <div class="stage" id="s1">
       <div class="shead"><div class="num">1</div>
@@ -171,15 +171,21 @@
     </div>
     <div class="stage" id="s3">
       <div class="shead"><div class="num">3</div>
-        <div class="stitle"><b>Stylist Agent</b><span>美术资产 · 自动提取所有显著视觉元素</span></div>
+        <div class="stitle"><b>Storyboard Agent</b><span>分镜导演 · 镜头拆解与拍摄提示</span></div>
         <div class="st" id="st3">待运行</div></div>
-      <div class="sbody"><div id="out3"><div class="placeholder">将通读剧本，自动归类提取全部视觉资产（角色、道具、场景、标志性镜头、色调……类别开放），并各自生成 image_prompt。</div></div></div>
+      <div class="sbody"><div id="out3"><div class="placeholder">将按集拆成关键分镜，包含画面、景别、运镜、台词/字幕、时长与画面提示。</div></div></div>
+    </div>
+    <div class="stage" id="s4">
+      <div class="shead"><div class="num">4</div>
+        <div class="stitle"><b>Stylist Agent</b><span>美术资产 · 自动提取所有显著视觉元素</span></div>
+        <div class="st" id="st4">待运行</div></div>
+      <div class="sbody"><div id="out4"><div class="placeholder">将通读剧本、分集大纲与分镜，自动归类提取视觉资产，并生成 image_prompt。</div></div></div>
     </div>
   </div>
 </div>
 
 <footer>
-  Writer→Director→Stylist 串联工作流。在线生成经同源 /api/generate 代理调用 OpenAI 兼容接口或 Azure；
+  Writer→Director→Storyboard→Stylist 串联工作流。在线生成经同源 /api/generate 代理调用 OpenAI 兼容接口或 Azure；
   API Key 由管理员在 Vercel 环境变量里统一配置。
 </footer>
 
@@ -241,6 +247,15 @@ function buildPrompts(p){
 ## Response Format
 严格输出 JSON，不含任何前导词/解释/代码块标记：
 {"total_episodes":6,"episodes":[{"ep_number":1,"title":"","duration_seconds":120,"characters":[""],"hook":"","outline":""}]}`,
+    storyboard:
+`# Role: 短剧分镜导演 (Storyboard Agent)
+## Objective
+把分集大纲拆成可拍摄的关键分镜。每集只输出 3～5 个关键镜头，优先覆盖开场冲突、信息反转、情绪爆点和结尾钩子。
+## Rules
+1.不要逐字复述剧情，只写镜头执行信息。2.每个镜头必须可拍摄，适合竖屏短剧。3.画面描述中文，visual_prompt 用英文并追加画风：「${p.styleFrag} --ar 9:16」。4.控制篇幅，优先跑通。
+## Response Format
+严格输出 JSON，不含任何前导词/解释/代码块标记：
+{"episodes":[{"ep_number":1,"shots":[{"shot_number":1,"duration_seconds":8,"shot_size":"近景","camera":"手持推进","visual":"画面描述","audio_or_caption":"台词/字幕/音效","purpose":"剧情作用","visual_prompt":"... --ar 9:16"}]}]}`,
     stylist:
 `# Role: 短剧美术资产专家 (Art Asset Agent)
 ## Objective
@@ -304,6 +319,20 @@ const SAMPLE = {
       {ep_number:6,title:"她的选择",duration_seconds:90,characters:["云楚楚","林羽"],
        hook:"云楚楚没有去接那张支票，而是握住了他端了三年茶的手——但门外，另一个女人喊出了林羽的真名。",
        outline:"云氏获救，但林羽要的是真心而非感激。云楚楚在利益与情义间做出选择。结尾抛出新人物，为续集留钩。"}
+    ]
+  },
+  storyboard:{
+    episodes:[
+      {ep_number:1,shots:[
+        {shot_number:1,duration_seconds:8,shot_size:"中景",camera:"缓慢横移",visual:"云家家宴厅，亲戚围坐，林羽端茶站在桌边，所有人的视线压向他。",audio_or_caption:"亲戚低声嘲笑，杯盏轻响。",purpose:"建立受辱处境",visual_prompt:"vertical short-drama banquet hall, humiliated son-in-law serving tea, relatives staring, tense warm lighting, theatrical cinematic --ar 9:16"},
+        {shot_number:2,duration_seconds:10,shot_size:"特写",camera:"快速推近",visual:"云海天把离婚协议拍在桌上，纸角震动，林羽的手停在茶杯旁。",audio_or_caption:"云海天：签了，别再拖累我女儿。",purpose:"引爆核心冲突",visual_prompt:"close-up of divorce agreement slammed on dark wooden table, trembling paper edge, dramatic warm spotlight, theatrical cinematic --ar 9:16"},
+        {shot_number:3,duration_seconds:8,shot_size:"极近景",camera:"定镜",visual:"旧手机屏幕突然亮起，显示羽盛资本注资待批示。",audio_or_caption:"手机震动声压过全场嘲笑。",purpose:"制造身份反转钩子",visual_prompt:"extreme close-up old smartphone glowing with encrypted investment approval message, dark banquet background, theatrical cinematic --ar 9:16"}
+      ]},
+      {ep_number:2,shots:[
+        {shot_number:1,duration_seconds:7,shot_size:"大全景",camera:"俯拍",visual:"云氏会议室灯光冰冷，文件散落，云海天焦躁踱步。",audio_or_caption:"字幕：破产倒计时 12 小时。",purpose:"建立商业危机",visual_prompt:"vertical modern boardroom at night, scattered documents, anxious businessman pacing, cold blue lighting, theatrical cinematic --ar 9:16"},
+        {shot_number:2,duration_seconds:9,shot_size:"近景",camera:"手持跟拍",visual:"云楚楚接到电话后脸色骤变，抬头看向厨房方向。",audio_or_caption:"电话声：L先生只见林羽。",purpose:"推进反转线索",visual_prompt:"close shot elegant woman shocked by phone call, looking toward kitchen, tense shallow depth of field, theatrical cinematic --ar 9:16"},
+        {shot_number:3,duration_seconds:8,shot_size:"背影中景",camera:"缓慢推进",visual:"林羽在厨房洗碗，背影平静，与外面的慌乱形成反差。",audio_or_caption:"水流声，外面争吵声渐弱。",purpose:"强化隐藏身份",visual_prompt:"back view of calm man washing dishes in modest kitchen at night, contrast with distant chaos, theatrical cinematic --ar 9:16"}
+      ]}
     ]
   },
   stylist:{
@@ -447,13 +476,14 @@ function resetDemo(){
   styleTab="Live Action"; currentStyle={n:"Theatrical Cinematic",f:STYLES["Live Action"][0].f}; initStyles();
   document.getElementById('p_total').value=''; document.getElementById('p_hook').value=5;
   document.getElementById('p_ep1').value=120; document.getElementById('p_dur').value=75;
-  ['1','2','3'].forEach(i=>{
+  ['1','2','3','4'].forEach(i=>{
     const s=document.getElementById('s'+i); s.className='stage';
     document.getElementById('st'+i).textContent='待运行'; document.getElementById('st'+i).className='st';
   });
   document.getElementById('out1').innerHTML='<div class="placeholder">点击「运行工作流」查看重构后的故事文本。</div>';
   document.getElementById('out2').innerHTML='<div class="placeholder">将输出严格 JSON 分集大纲（含钩子、时长、出场角色）。</div>';
-  document.getElementById('out3').innerHTML='<div class="placeholder">将通读剧本，自动归类提取全部视觉资产（类别开放），并各自生成 image_prompt。</div>';
+  document.getElementById('out3').innerHTML='<div class="placeholder">将按集拆成关键分镜，包含画面、景别、运镜、台词/字幕、时长与画面提示。</div>';
+  document.getElementById('out4').innerHTML='<div class="placeholder">将通读剧本、分集大纲与分镜，自动归类提取视觉资产，并生成 image_prompt。</div>';
 }
 
 /* ===================== 设置 / 接口 ===================== */
@@ -540,6 +570,31 @@ function renderDirector(d){
   h+='<details class="raw"><summary>查看原始 JSON（交给研发的结构化数据）</summary><pre>'+esc(JSON.stringify(d,null,2))+'</pre></details>';
   document.getElementById('out2').innerHTML=h;
 }
+function renderStoryboard(data){
+  data=data||{episodes:[]};
+  let h='<div class="eps">';
+  (data.episodes||[]).forEach(ep=>{
+    h+=`<div class="ep"><div class="top"><span class="epn">EP${ep.ep_number}</span><span class="ttl">关键分镜</span></div>`;
+    (ep.shots||[]).forEach(sh=>{
+      h+=`<div class="ch" style="margin-top:10px">
+        <div class="top" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <h4 style="margin:0">镜头 ${sh.shot_number||''}</h4>
+          ${sh.duration_seconds?'<span class="dur">'+esc(String(sh.duration_seconds))+'s</span>':''}
+          ${sh.shot_size?'<span class="rt">'+esc(sh.shot_size)+'</span>':''}
+        </div>
+        ${sh.camera?'<div class="ft">运镜：'+esc(sh.camera)+'</div>':''}
+        <div class="ol">${esc(sh.visual||'')}</div>
+        ${sh.audio_or_caption?'<div class="hook">🎙 '+esc(sh.audio_or_caption)+'</div>':''}
+        ${sh.purpose?'<div class="cast">作用：'+esc(sh.purpose)+'</div>':''}
+        ${sh.visual_prompt?'<div class="ip">'+esc(sh.visual_prompt)+'</div>'+copyBtn():''}
+      </div>`;
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  h+='<details class="raw"><summary>查看原始 JSON（分镜数据）</summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details>';
+  document.getElementById('out3').innerHTML=h;
+}
 function copyBtn(){return '<div class="cp" onclick="navigator.clipboard&&navigator.clipboard.writeText(this.previousElementSibling.textContent)">📋 复制 image_prompt</div>';}
 function epTag(arr){return (arr&&arr.length)?'<span class="dur">EP '+arr.join(',')+'</span>':'';}
 function assetGroup(title,icon,inner){return `<div class="agroup"><div class="atitle">${icon} ${title}</div>${inner}</div>`;}
@@ -563,7 +618,7 @@ function renderStylist(data,applySty){
   });
 
   h+='<details class="raw"><summary>查看原始 JSON（资产清单，交给研发/美术）</summary><pre>'+esc(JSON.stringify(data,null,2))+'</pre></details>';
-  document.getElementById('out3').innerHTML=h;
+  document.getElementById('out4').innerHTML=h;
 }
 
 // 把各种可能的输出形态统一成 {groups:[{category,icon?,items:[{name,tag?,note?,appears_in_episodes?,image_prompt}]}]}
@@ -601,7 +656,7 @@ function gatherParams(){
 }
 
 function resetStages(){
-  ['1','2','3'].forEach(i=>{const s=document.getElementById('s'+i);s.className='stage';
+  ['1','2','3','4'].forEach(i=>{const s=document.getElementById('s'+i);s.className='stage';
     const st=document.getElementById('st'+i);st.textContent='待运行';st.className='st';});
 }
 async function run(){
@@ -628,7 +683,8 @@ async function runDemoBtn(){
 async function runDemo(){
   setStage(1,'run'); await sleep(700); renderWriter(SAMPLE.writer); setStage(1,'done');
   await sleep(400); setStage(2,'run'); await sleep(900); renderDirector(SAMPLE.director); setStage(2,'done');
-  await sleep(400); setStage(3,'run'); await sleep(900); renderStylist(SAMPLE.stylist,true); setStage(3,'done');
+  await sleep(400); setStage(3,'run'); await sleep(900); renderStoryboard(SAMPLE.storyboard); setStage(3,'done');
+  await sleep(400); setStage(4,'run'); await sleep(900); renderStylist(SAMPLE.stylist,true); setStage(4,'done');
 }
 
 // 在线模式：经同源 /api/generate 代理调用（避免跨域；key 可来自页面或 Vercel 环境变量）
@@ -663,16 +719,27 @@ async function runLive(p){
   const dirRaw=await callLLM(P.director,
     `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【重构故事】\n${compact(writerOut)}`,true);
   const dir=parseJSON(dirRaw); renderDirector(dir); setStage(2,'done');
-  // Stylist (输出开放分组资产)
+  // Storyboard (强制 JSON)
   setStage(3,'run');
+  let storyboard;
+  try{
+    const storyboardRaw=await callLLM(P.storyboard,
+      `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【画风】${p.style}\n【重构故事】\n${compact(writerOut)}\n【分集大纲】\n${compact(JSON.stringify(dir))}`,true);
+    storyboard=parseJSON(storyboardRaw);
+  }catch(err){
+    storyboard=makeFallbackStoryboard(p,dir);
+  }
+  renderStoryboard(storyboard); setStage(3,'done');
+  // Stylist (输出开放分组资产)
+  setStage(4,'run');
   try{
     const styRaw=await callLLM(P.stylist,
-      `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【画风】${p.style}\n【故事摘要】\n${compact(writerOut)}\n【分集大纲】\n${compact(JSON.stringify(dir))}`,true);
+      `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【画风】${p.style}\n【故事摘要】\n${compact(writerOut)}\n【分集大纲】\n${compact(JSON.stringify(dir))}\n【关键分镜】\n${compact(JSON.stringify(storyboard))}`,true);
     const sty=parseJSON(styRaw);
-    renderStylist(sty,false); setStage(3,'done');  // 在线模式由模型已注入画风
+    renderStylist(sty,false); setStage(4,'done');  // 在线模式由模型已注入画风
   }catch(err){
     renderStylist(makeFallbackAssets(p,dir,writerOut),true);
-    setStage(3,'done');
+    setStage(4,'done');
   }
 }
 
@@ -688,6 +755,16 @@ function makeFallbackAssets(p,dir,writerOut){
     {category:'角色/主视觉',icon:'🎭',items},
     {category:'核心场景',icon:'🏛️',items:[{name:'核心冲突场景',tag:'场景',note:String(writerOut||'').slice(0,80),appears_in_episodes:[1],image_prompt:`vertical cinematic short-drama scene, tense emotional conflict, ${p.styleFrag} --ar 9:16`}]}
   ]};
+}
+
+function makeFallbackStoryboard(p,dir){
+  return {episodes:((dir&&dir.episodes)||[]).slice(0,3).map(ep=>({
+    ep_number:ep.ep_number,
+    shots:[
+      {shot_number:1,duration_seconds:8,shot_size:'中景',camera:'缓慢推进',visual:ep.outline||ep.title||'建立本集核心情境',audio_or_caption:ep.title||'',purpose:'建立剧情',visual_prompt:`vertical short-drama establishing shot, ${p.styleFrag} --ar 9:16`},
+      {shot_number:2,duration_seconds:10,shot_size:'近景',camera:'手持跟拍',visual:ep.hook||'角色情绪爆发并制造悬念',audio_or_caption:ep.hook||'',purpose:'结尾钩子',visual_prompt:`vertical short-drama close shot, dramatic emotional hook, ${p.styleFrag} --ar 9:16`}
+    ]
+  }))};
 }
 
 /* init */
