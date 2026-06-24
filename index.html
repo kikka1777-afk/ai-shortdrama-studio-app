@@ -703,7 +703,36 @@ async function callLLM(sys,user,wantJSON){
 }
 function parseJSON(s){
   let t=s.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-  return JSON.parse(t);
+  const first=Math.min(...['{','['].map(ch=>{const i=t.indexOf(ch);return i<0?Infinity:i;}));
+  if(Number.isFinite(first)) t=t.slice(first);
+  try{return JSON.parse(t);}catch(err){}
+  const fixed=repairTruncatedJSON(t);
+  return JSON.parse(fixed);
+}
+function repairTruncatedJSON(t){
+  let out='', stack=[], inStr=false, escp=false;
+  for(const ch of String(t||'')){
+    out+=ch;
+    if(inStr){
+      if(escp){escp=false; continue;}
+      if(ch==='\\'){escp=true; continue;}
+      if(ch==='"') inStr=false;
+      continue;
+    }
+    if(ch==='"'){inStr=true; continue;}
+    if(ch==='{'||ch==='[') stack.push(ch);
+    else if(ch==='}'||ch===']'){
+      const need=ch==='}'?'{':'[';
+      if(stack[stack.length-1]===need) stack.pop();
+    }
+  }
+  if(inStr) out+='"';
+  out=out.replace(/,\s*$/,'');
+  while(stack.length){
+    const open=stack.pop();
+    out+=open==='{'?'}':']';
+  }
+  return out;
 }
 async function runLive(p){
   if(!p.raw){throw new Error('请先在左侧填入原始素材/创意');}
@@ -716,9 +745,15 @@ async function runLive(p){
   renderWriter(writerOut); setStage(1,'done');
   // Director (强制 JSON)
   setStage(2,'run');
-  const dirRaw=await callLLM(P.director,
-    `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【重构故事】\n${compact(writerOut)}`,true);
-  const dir=parseJSON(dirRaw); renderDirector(dir); setStage(2,'done');
+  let dir;
+  try{
+    const dirRaw=await callLLM(P.director,
+      `【题材标签】${p.tags.length?JSON.stringify(p.tags):'（未指定）'}\n【重构故事】\n${compact(writerOut)}`,true);
+    dir=parseJSON(dirRaw);
+  }catch(err){
+    dir=makeFallbackDirector(p,writerOut);
+  }
+  renderDirector(dir); setStage(2,'done');
   // Storyboard (强制 JSON)
   setStage(3,'run');
   let storyboard;
@@ -755,6 +790,23 @@ function makeFallbackAssets(p,dir,writerOut){
     {category:'角色/主视觉',icon:'🎭',items},
     {category:'核心场景',icon:'🏛️',items:[{name:'核心冲突场景',tag:'场景',note:String(writerOut||'').slice(0,80),appears_in_episodes:[1],image_prompt:`vertical cinematic short-drama scene, tense emotional conflict, ${p.styleFrag} --ar 9:16`}]}
   ]};
+}
+
+function makeFallbackDirector(p,writerOut){
+  const total=Math.max(1,Math.min(4,Number(p.total)||4));
+  const text=String(writerOut||p.raw||'').replace(/\s+/g,' ').trim();
+  const sliceLen=Math.max(60,Math.ceil(text.length/total));
+  return {total_episodes:total,episodes:Array.from({length:total},(_,i)=>{
+    const part=text.slice(i*sliceLen,(i+1)*sliceLen)||text.slice(0,120)||'围绕核心人物推进冲突与反转。';
+    return {
+      ep_number:i+1,
+      title:i===0?'开场冲突':`反转推进 ${i+1}`,
+      duration_seconds:i===0?Number(p.ep1)||120:Number(p.dur)||75,
+      characters:['主角','关键对手'],
+      hook:part.slice(0,80),
+      outline:part
+    };
+  })};
 }
 
 function makeFallbackStoryboard(p,dir){
