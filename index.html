@@ -193,16 +193,18 @@
 <div class="modal" id="modal">
   <div class="box">
     <h3>设置模型接口</h3>
-    <p>支持 OpenAI 兼容接口与 Azure OpenAI。配置只存在你本地浏览器 localStorage。留空则只能跑内置示例（除非已在 Vercel 设了环境变量）。</p>
-    <label class="l">接口类型</label>
+    <p>支持通用 OpenAI-compatible 接口、Grok / xAI、OpenAI 官方与 Azure OpenAI。配置只存在你本地浏览器 localStorage；生产环境也可用 Vercel 环境变量统一配置。</p>
+    <label class="l">接口预设</label>
     <select id="provider" onchange="toggleProvider()" style="width:100%;background:var(--code);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit">
-      <option value="openai">OpenAI 兼容（OpenAI官方 / 公司中转 / 各类网关）</option>
+      <option value="openai">OpenAI 官方</option>
+      <option value="grok">Grok / xAI</option>
+      <option value="compatible">自定义 OpenAI-compatible</option>
       <option value="azure">Azure OpenAI</option>
     </select>
     <label class="l" id="lblBase">Base URL（可留空，用 Vercel 环境变量）</label>
     <input type="text" id="baseUrl" placeholder="https://api.openai.com/v1" style="width:100%;background:var(--code);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit">
-    <label class="l">API Key（可留空，用 Vercel 环境变量 OPENAI_API_KEY）</label>
-    <input type="password" id="apiKey" placeholder="sk-... 或公司分配的 key">
+    <label class="l" id="lblKey">API Key（可留空，用 Vercel 环境变量 AI_API_KEY）</label>
+    <input type="password" id="apiKey" placeholder="sk-... / xai-... / 公司分配的 key">
     <label class="l" id="lblModel">模型名</label>
     <input type="text" id="model" placeholder="gpt-4o-mini" style="width:100%;background:var(--code);color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit">
     <div id="azureRow" style="display:none">
@@ -213,7 +215,7 @@
       <button class="btn" onclick="closeSettings()">取消</button>
       <button class="btn primary" onclick="saveSettings()">保存</button>
     </div>
-    <p class="note" id="setNote">提示：请求由同源的 /api/generate 代理转发，已避开跨域(CORS)问题。你也可以不在这里填，改在 Vercel 项目设置 → Environment Variables 里设 OPENAI_API_KEY（和可选 OPENAI_BASE_URL），同事打开就不用各自填 key。</p>
+    <p class="note" id="setNote">提示：请求由同源的 /api/generate 代理转发，已避开跨域(CORS)问题。Vercel 推荐使用通用变量 AI_API_KEY / AI_BASE_URL / AI_MODEL；旧 OPENAI_* 仍兼容。Grok 可用 AI_API_KEY 或 XAI_API_KEY。</p>
   </div>
 </div>
 
@@ -487,22 +489,70 @@ function resetDemo(){
 }
 
 /* ===================== 设置 / 接口 ===================== */
+const API_PRESETS={
+  openai:{label:'OpenAI 官方',base:'https://api.openai.com/v1',model:'gpt-4o-mini',placeholder:'gpt-4o-mini'},
+  grok:{label:'Grok / xAI',base:'https://api.x.ai/v1',model:'grok-4.3',placeholder:'grok-4.3 / 你的 xAI 可用模型'},
+  compatible:{label:'自定义 OpenAI-compatible',base:'',model:'',placeholder:'模型名，例如 gpt-4o-mini / qwen-plus / deepseek-chat'},
+  azure:{label:'Azure OpenAI',base:'',model:'',placeholder:'你的 deployment 名称'}
+};
+
+function migrateApiSettings(){
+  if(localStorage.getItem('ai_settings_migrated_v2')==='1') return;
+  const oldProvider=localStorage.getItem('oa_provider');
+  const oldBase=localStorage.getItem('oa_base');
+  const oldKey=localStorage.getItem('oa_key');
+  const oldModel=localStorage.getItem('oa_model');
+  const oldApiVersion=localStorage.getItem('oa_apiver');
+  if(!localStorage.getItem('ai_provider')&&oldProvider) localStorage.setItem('ai_provider',oldProvider==='openai'?'compatible':oldProvider);
+  if(!localStorage.getItem('ai_base')&&oldBase) localStorage.setItem('ai_base',oldBase);
+  if(!localStorage.getItem('ai_key')&&oldKey) localStorage.setItem('ai_key',oldKey);
+  if(!localStorage.getItem('ai_model')&&oldModel) localStorage.setItem('ai_model',oldModel);
+  if(!localStorage.getItem('ai_apiver')&&oldApiVersion) localStorage.setItem('ai_apiver',oldApiVersion);
+  localStorage.setItem('ai_settings_migrated_v2','1');
+}
+
+function effectiveProvider(){
+  return localStorage.getItem('ai_provider')||localStorage.getItem('oa_provider')||'openai';
+}
+
+function cleanBaseForCompare(value){
+  return normalizeBaseInput(value||'').replace(/\/$/,'').toLowerCase();
+}
+function isKnownPresetBase(value){
+  const current=cleanBaseForCompare(value);
+  return !!current && Object.values(API_PRESETS).some(p=>p.base&&cleanBaseForCompare(p.base)===current);
+}
+function isKnownPresetModel(value){
+  const current=(value||'').trim();
+  return !!current && Object.values(API_PRESETS).some(p=>p.model&&p.model===current);
+}
+
 function openSettings(){
-  document.getElementById('provider').value=localStorage.getItem('oa_provider')||'openai';
-  document.getElementById('baseUrl').value=localStorage.getItem('oa_base')||'';
-  document.getElementById('apiKey').value=localStorage.getItem('oa_key')||'';
-  document.getElementById('model').value=localStorage.getItem('oa_model')||'gpt-4o-mini';
-  document.getElementById('apiVersion').value=localStorage.getItem('oa_apiver')||'2024-08-01-preview';
+  migrateApiSettings();
+  const provider=effectiveProvider();
+  const preset=API_PRESETS[provider]||API_PRESETS.compatible;
+  document.getElementById('provider').value=provider;
+  document.getElementById('baseUrl').value=localStorage.getItem('ai_base')||localStorage.getItem('oa_base')||preset.base||'';
+  document.getElementById('apiKey').value=localStorage.getItem('ai_key')||localStorage.getItem('oa_key')||'';
+  document.getElementById('model').value=localStorage.getItem('ai_model')||localStorage.getItem('oa_model')||preset.model||'';
+  document.getElementById('apiVersion').value=localStorage.getItem('ai_apiver')||localStorage.getItem('oa_apiver')||'2024-08-01-preview';
   toggleProvider();
   document.getElementById('modal').classList.add('on');
 }
 function toggleProvider(){
-  const az=document.getElementById('provider').value==='azure';
+  const provider=document.getElementById('provider').value;
+  const preset=API_PRESETS[provider]||API_PRESETS.compatible;
+  const az=provider==='azure';
+  const baseEl=document.getElementById('baseUrl');
+  const modelEl=document.getElementById('model');
   document.getElementById('azureRow').style.display=az?'block':'none';
-  document.getElementById('lblBase').textContent=az?'Endpoint（如 https://xxx.openai.azure.com）':'Base URL（可留空，用 Vercel 环境变量）';
+  document.getElementById('lblBase').textContent=az?'Endpoint（如 https://xxx.openai.azure.com）':'Base URL（OpenAI-compatible，可留空用环境变量）';
+  document.getElementById('lblKey').textContent=provider==='grok'?'API Key（xAI key；可留空用 AI_API_KEY / XAI_API_KEY）':'API Key（可留空用 AI_API_KEY）';
   document.getElementById('lblModel').textContent=az?'部署名 Deployment':'模型名';
-  document.getElementById('baseUrl').placeholder=az?'https://your-resource.openai.azure.com':'https://api.openai.com/v1';
-  document.getElementById('model').placeholder=az?'你的 deployment 名称':'gpt-4o-mini';
+  baseEl.placeholder=az?'https://your-resource.openai.azure.com':(preset.base||'https://api.your-provider.com/v1');
+  modelEl.placeholder=preset.placeholder;
+  if((!baseEl.value||isKnownPresetBase(baseEl.value))&&preset.base) baseEl.value=preset.base;
+  if((!modelEl.value||isKnownPresetModel(modelEl.value))&&preset.model) modelEl.value=preset.model;
 }
 function closeSettings(){document.getElementById('modal').classList.remove('on');}
 function normalizeBaseInput(v){
@@ -521,16 +571,21 @@ function normalizeBaseInput(v){
   }catch(e){return b;}
 }
 function saveSettings(){
-  localStorage.setItem('oa_provider',document.getElementById('provider').value);
-  localStorage.setItem('oa_base',normalizeBaseInput(document.getElementById('baseUrl').value));
-  localStorage.setItem('oa_key',document.getElementById('apiKey').value.trim());
-  localStorage.setItem('oa_model',(document.getElementById('model').value.trim()||'gpt-4o-mini'));
-  localStorage.setItem('oa_apiver',(document.getElementById('apiVersion').value.trim()||'2024-08-01-preview'));
+  const provider=document.getElementById('provider').value;
+  const preset=API_PRESETS[provider]||API_PRESETS.compatible;
+  localStorage.setItem('ai_provider',provider);
+  localStorage.setItem('ai_base',normalizeBaseInput(document.getElementById('baseUrl').value||preset.base||''));
+  localStorage.setItem('ai_key',document.getElementById('apiKey').value.trim());
+  localStorage.setItem('ai_model',(document.getElementById('model').value.trim()||preset.model||''));
+  localStorage.setItem('ai_apiver',(document.getElementById('apiVersion').value.trim()||'2024-08-01-preview'));
+  localStorage.setItem('ai_settings_migrated_v2','1');
   closeSettings(); refreshMode();
 }
 function refreshMode(){
-  const b=document.getElementById('modeBadge'); const has=!!localStorage.getItem('oa_key');
-  const prov=localStorage.getItem('oa_provider')==='azure'?'Azure':'OpenAI兼容';
+  migrateApiSettings();
+  const b=document.getElementById('modeBadge'); const has=!!(localStorage.getItem('ai_key')||localStorage.getItem('oa_key'));
+  const provider=effectiveProvider();
+  const prov=(API_PRESETS[provider]&&API_PRESETS[provider].label)||'OpenAI-compatible';
   if(has){b.textContent='在线模式（'+prov+'）';b.className='badge';
     document.getElementById('hint').textContent='已配置接口：「运行工作流」将对当前素材、标签、画风实时生成；「跑内置样例」随时可看演示。';}
   else{b.textContent='演示模式（内置示例）';b.className='badge demo';
@@ -666,7 +721,7 @@ async function run(){
   try{
     await runLive(p);
   }catch(err){
-    alert('在线生成失败：'+err.message+'\n\n已自动回退为内置示例。\n请联系管理员检查 Vercel 环境变量 OPENAI_API_KEY / OPENAI_BASE_URL。');
+    alert('在线生成失败：'+err.message+'\n\n已自动回退为内置示例。\n请联系管理员检查 Vercel 环境变量 AI_API_KEY / AI_BASE_URL / AI_MODEL。');
     await runDemo();
   }
   btn.disabled=false; if(btn2)btn2.disabled=false;
@@ -689,11 +744,13 @@ async function runDemo(){
 
 // 在线模式：经同源 /api/generate 代理调用（避免跨域；key 可来自页面或 Vercel 环境变量）
 async function callLLM(sys,user,wantJSON){
-  const provider=localStorage.getItem('oa_provider')||'openai';
-  const key=localStorage.getItem('oa_key')||'';
-  const base=normalizeBaseInput(localStorage.getItem('oa_base')||'');
-  const model=localStorage.getItem('oa_model')||'gpt-4o-mini';
-  const apiVersion=localStorage.getItem('oa_apiver')||'2024-08-01-preview';
+  migrateApiSettings();
+  const provider=effectiveProvider();
+  const preset=API_PRESETS[provider]||API_PRESETS.compatible;
+  const key=localStorage.getItem('ai_key')||localStorage.getItem('oa_key')||'';
+  const base=normalizeBaseInput(localStorage.getItem('ai_base')||localStorage.getItem('oa_base')||preset.base||'');
+  const model=localStorage.getItem('ai_model')||localStorage.getItem('oa_model')||preset.model||'';
+  const apiVersion=localStorage.getItem('ai_apiver')||localStorage.getItem('oa_apiver')||'2024-08-01-preview';
   const r=await fetch('/api/generate',{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({provider,key,base,model,apiVersion,system:sys,user,wantJSON})});
