@@ -514,6 +514,9 @@ function migrateApiSettings(){
 function effectiveProvider(){
   return localStorage.getItem('ai_provider')||localStorage.getItem('oa_provider')||'openai';
 }
+function storedProvider(){
+  return localStorage.getItem('ai_provider')||localStorage.getItem('oa_provider')||'';
+}
 
 function cleanBaseForCompare(value){
   return normalizeBaseInput(value||'').replace(/\/$/,'').toLowerCase();
@@ -745,15 +748,20 @@ async function runDemo(){
 // 在线模式：经同源 /api/generate 代理调用（避免跨域；key 可来自页面或 Vercel 环境变量）
 async function callLLM(sys,user,wantJSON){
   migrateApiSettings();
-  const provider=effectiveProvider();
-  const preset=API_PRESETS[provider]||API_PRESETS.compatible;
   const key=localStorage.getItem('ai_key')||localStorage.getItem('oa_key')||'';
-  const base=normalizeBaseInput(localStorage.getItem('ai_base')||localStorage.getItem('oa_base')||preset.base||'');
-  const model=localStorage.getItem('ai_model')||localStorage.getItem('oa_model')||preset.model||'';
+  const provider=storedProvider();
+  const base=normalizeBaseInput(localStorage.getItem('ai_base')||localStorage.getItem('oa_base')||'');
+  const model=localStorage.getItem('ai_model')||localStorage.getItem('oa_model')||'';
   const apiVersion=localStorage.getItem('ai_apiver')||localStorage.getItem('oa_apiver')||'2024-08-01-preview';
+  const body={system:sys,user,wantJSON};
+  if(provider) body.provider=provider;
+  if(key) body.key=key;
+  if(base) body.base=base;
+  if(model) body.model=model;
+  if(provider==='azure'||localStorage.getItem('ai_apiver')||localStorage.getItem('oa_apiver')) body.apiVersion=apiVersion;
   const r=await fetch('/api/generate',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({provider,key,base,model,apiVersion,system:sys,user,wantJSON})});
+    body:JSON.stringify(body)});
   const j=await r.json().catch(()=>({error:'服务器返回非 JSON（可能未部署 /api/generate）'}));
   if(!r.ok||j.error) throw new Error(j.error||('HTTP '+r.status));
   return j.content;

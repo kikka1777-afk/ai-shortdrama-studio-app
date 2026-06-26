@@ -205,7 +205,7 @@ function resolveApiKey({ inputKey, baseUrl, provider }) {
   }
 
   if (isXaiBase(baseUrl)) {
-    return envFirst('XAI_API_KEY', 'GROK_API_KEY');
+    return envFirst('XAI_API_KEY', 'GROK_API_KEY', 'OPENAI_API_KEY');
   }
 
   return envFirst('OPENAI_API_KEY');
